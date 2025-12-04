@@ -10,12 +10,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
-import type { AssetType } from '../types/asset';
+import { CategorySelector } from '@/components/CategorySelector';
+import { SuggestCategoryModal } from '@/components/SuggestCategoryModal';
+import type { AssetType, CategorySelection } from '../types/asset';
 
 interface ValidationErrors {
   assetType?: string;
   assetName?: string;
-  category?: string;
+  categories?: string;
 }
 
 interface UploadedFile {
@@ -39,7 +41,7 @@ export function CreateAsset() {
   // Form state - simplified onboarding fields only
   const [assetType, setAssetType] = useState<AssetType>('physical');
   const [assetName, setAssetName] = useState('');
-  const [category, setCategory] = useState('');
+  const [categories, setCategories] = useState<CategorySelection[]>([]);
   const [shortSummary, setShortSummary] = useState('');
   const [companyName, setCompanyName] = useState('');
   const [websiteUrl, setWebsiteUrl] = useState('');
@@ -54,6 +56,9 @@ export function CreateAsset() {
   const [isUploading, setIsUploading] = useState(false);
   const [isExtracting, setIsExtracting] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  
+  // Suggest category modal state
+  const [showSuggestModal, setShowSuggestModal] = useState(false);
 
   const validateForm = (): boolean => {
     const errors: ValidationErrors = {};
@@ -64,8 +69,10 @@ export function CreateAsset() {
     if (!assetName.trim()) {
       errors.assetName = 'Asset name is required';
     }
-    if (!category) {
-      errors.category = 'Category is required';
+    if (categories.length === 0) {
+      errors.categories = 'At least one category is required';
+    } else if (categories.length > 4) {
+      errors.categories = 'Maximum 4 categories allowed';
     }
     
     setValidationErrors(errors);
@@ -82,7 +89,7 @@ export function CreateAsset() {
     queryFn: getAssetTypes,
   });
 
-  const { data: categories } = useQuery({
+  const { data: categoriesData } = useQuery({
     queryKey: ['categories'],
     queryFn: getCategories,
   });
@@ -159,7 +166,7 @@ export function CreateAsset() {
     setTouched({
       assetType: true,
       assetName: true,
-      category: true,
+      categories: true,
     });
     
     if (!validateForm()) {
@@ -170,7 +177,7 @@ export function CreateAsset() {
       asset_type: assetType,
       basic_information: {
         asset_name: assetName,
-        category,
+        categories,
         short_summary: shortSummary || undefined,
         company_name: companyName || undefined,
         company_website_url: websiteUrl || undefined,
@@ -183,7 +190,7 @@ export function CreateAsset() {
     setTouched({
       assetType: true,
       assetName: true,
-      category: true,
+      categories: true,
     });
     
     if (!validateForm()) {
@@ -198,7 +205,7 @@ export function CreateAsset() {
         asset_type: assetType,
         basic_information: {
           asset_name: assetName,
-          category,
+          categories,
           short_summary: shortSummary || undefined,
           company_name: companyName || undefined,
           company_website_url: websiteUrl || undefined,
@@ -295,25 +302,6 @@ export function CreateAsset() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="category" className="text-[#1A1A1A]">Category *</Label>
-                <Select value={category} onValueChange={setCategory}>
-                  <SelectTrigger className={`border-[#D8D8D8] ${touched.category && validationErrors.category ? 'border-red-500' : ''}`}>
-                    <SelectValue placeholder="Select category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories?.map((cat) => (
-                      <SelectItem key={cat} value={cat}>
-                        {cat}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {touched.category && validationErrors.category && (
-                  <p className="text-sm text-red-500">{validationErrors.category}</p>
-                )}
-              </div>
-
-              <div className="space-y-2">
                 <Label htmlFor="companyName" className="text-[#1A1A1A]">Supplier Company Name</Label>
                 <Input
                   id="companyName"
@@ -323,6 +311,22 @@ export function CreateAsset() {
                   className="border-[#D8D8D8] focus:ring-[#1B4FFF]"
                 />
               </div>
+            </div>
+
+            {/* Category Selection */}
+            <div className="space-y-2">
+              <Label className="text-[#1A1A1A]">Categories * (select 1-4)</Label>
+              <CategorySelector
+                value={categories}
+                onChange={setCategories}
+                maxCategories={4}
+                minCategories={1}
+                showSuggestLink={true}
+                onSuggestCategory={() => setShowSuggestModal(true)}
+              />
+              {touched.categories && validationErrors.categories && (
+                <p className="text-sm text-red-500">{validationErrors.categories}</p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -499,6 +503,13 @@ export function CreateAsset() {
           You can review and edit all fields on the next page.
         </p>
       </form>
+
+      {/* Suggest Category Modal */}
+      <SuggestCategoryModal
+        open={showSuggestModal}
+        onOpenChange={setShowSuggestModal}
+        primaryCategories={categoriesData?.categories.map(c => c.primary) || []}
+      />
     </div>
   );
 }

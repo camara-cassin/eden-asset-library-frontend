@@ -50,7 +50,7 @@ export function Dashboard() {
   });
 
   // Fetch reference data
-  const { data: categories } = useQuery({
+  const { data: categoriesData } = useQuery({
     queryKey: ['categories'],
     queryFn: getCategories,
   });
@@ -142,9 +142,9 @@ export function Dashboard() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="__all__">All Categories</SelectItem>
-                {categories?.map((cat) => (
-                  <SelectItem key={cat} value={cat}>
-                    {cat}
+                {categoriesData?.categories?.map((cat) => (
+                  <SelectItem key={cat.primary} value={cat.primary}>
+                    {cat.primary}
                   </SelectItem>
                 ))}
               </SelectContent>

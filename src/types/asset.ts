@@ -42,7 +42,27 @@ export interface AIAssistance {
   fields_prefilled?: string[];
 }
 
+// Category selection for multi-category support
+export interface CategorySelection {
+  primary: string;
+  subcategories?: string[];
+}
+
+// Hierarchical category structure from API
+export interface CategoryDefinition {
+  primary: string;
+  subcategories: string[];
+  color: string;
+}
+
+export interface CategoriesResponse {
+  categories: CategoryDefinition[];
+}
+
 export interface BasicInformation {
+  // New multi-category structure (1-4 primary categories with optional subcategories)
+  categories?: CategorySelection[];
+  // Legacy single category fields (kept for backwards compatibility)
   category?: string;
   subcategory?: string;
   asset_name?: string;
@@ -293,7 +313,10 @@ export interface AssetCreatePayload {
   asset_type: AssetType;
   basic_information: {
     asset_name: string;
-    category: string;
+    // New multi-category structure (1-4 primary categories with optional subcategories)
+    categories?: CategorySelection[];
+    // Legacy single category field (kept for backwards compatibility)
+    category?: string;
     short_summary?: string;
     subcategory?: string;
     scaling_potential?: ScalingPotential;

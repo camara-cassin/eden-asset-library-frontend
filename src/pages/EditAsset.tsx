@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getAsset, updateAsset, submitAsset, attachFile, aiExtract } from '../api/assets';
-import { getAssetTypes, getCategories, getSubcategories, getScalingPotentials } from '../api/reference';
+import { getAssetTypes, getCategories, getScalingPotentials } from '../api/reference';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -15,7 +15,9 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ChevronDown } from 'lucide-react';
-import type { EdenAsset, TimePeriod, AIExtractionResponse } from '../types/asset';
+import { CategorySelector } from '@/components/CategorySelector';
+import { SuggestCategoryModal } from '@/components/SuggestCategoryModal';
+import type { EdenAsset, TimePeriod, AIExtractionResponse, CategorySelection } from '../types/asset';
 
 const FILE_TARGETS = [
   { value: 'cad_file_urls', label: 'CAD Files' },
@@ -125,16 +127,13 @@ export function EditAsset() {
     queryFn: getAssetTypes,
   });
 
-  const { data: categories } = useQuery({
+  const { data: categoriesData } = useQuery({
     queryKey: ['categories'],
     queryFn: getCategories,
   });
 
-  const { data: subcategories } = useQuery({
-    queryKey: ['subcategories', formData.basic_information?.category],
-    queryFn: () => getSubcategories(formData.basic_information?.category),
-    enabled: !!formData.basic_information?.category,
-  });
+  // State for suggest category modal
+  const [showSuggestModal, setShowSuggestModal] = useState(false);
 
   const { data: scalingPotentials } = useQuery({
     queryKey: ['scalingPotentials'],
@@ -467,44 +466,6 @@ export function EditAsset() {
             </div>
 
             <div className="space-y-2">
-              <Label className="text-[#1A1A1A]">Category</Label>
-              <Select
-                value={formData.basic_information?.category || ''}
-                onValueChange={(v) => updateFormField('basic_information.category', v)}
-              >
-                <SelectTrigger className="border-[#D8D8D8]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {categories?.map((cat) => (
-                    <SelectItem key={cat} value={cat}>
-                      {cat}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label className="text-[#1A1A1A]">Subcategory</Label>
-              <Select
-                value={formData.basic_information?.subcategory || ''}
-                onValueChange={(v) => updateFormField('basic_information.subcategory', v)}
-              >
-                <SelectTrigger className="border-[#D8D8D8]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {subcategories?.map((sub) => (
-                    <SelectItem key={sub} value={sub}>
-                      {sub}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
               <Label className="text-[#1A1A1A]">Scaling Potential</Label>
               <Select
                 value={formData.basic_information?.scaling_potential || ''}
@@ -522,6 +483,19 @@ export function EditAsset() {
                 </SelectContent>
               </Select>
             </div>
+          </div>
+
+          {/* Category Selection */}
+          <div className="space-y-2">
+            <Label className="text-[#1A1A1A]">Categories (select 1-4)</Label>
+            <CategorySelector
+              value={formData.basic_information?.categories || []}
+              onChange={(categories: CategorySelection[]) => updateFormField('basic_information.categories', categories)}
+              maxCategories={4}
+              minCategories={1}
+              showSuggestLink={true}
+              onSuggestCategory={() => setShowSuggestModal(true)}
+            />
           </div>
 
           <div className="space-y-2">
@@ -1542,6 +1516,13 @@ export function EditAsset() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Suggest Category Modal */}
+      <SuggestCategoryModal
+        open={showSuggestModal}
+        onOpenChange={setShowSuggestModal}
+        primaryCategories={categoriesData?.categories.map(c => c.primary) || []}
+      />
     </div>
   );
 }
