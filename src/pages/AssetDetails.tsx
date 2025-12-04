@@ -19,7 +19,7 @@ export function AssetDetails() {
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
 
-  const { data: asset, isLoading } = useQuery({
+  const { data: asset, isLoading, error: fetchError } = useQuery({
     queryKey: ['asset', id],
     queryFn: () => getAsset(id!),
     enabled: !!id,
@@ -60,6 +60,17 @@ export function AssetDetails() {
     return (
       <div className="flex items-center justify-center py-12">
         <Spinner className="w-8 h-8 text-[#1B4FFF]" />
+      </div>
+    );
+  }
+
+  if (fetchError) {
+    return (
+      <div className="text-center py-12">
+        <p className="text-red-600 font-medium">Failed to load asset</p>
+        <p className="text-red-500 text-sm mt-1">
+          {fetchError instanceof Error ? fetchError.message : 'Unknown error'}
+        </p>
       </div>
     );
   }

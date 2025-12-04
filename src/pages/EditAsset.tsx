@@ -47,11 +47,16 @@ export function EditAsset() {
   const [_hasChanges, setHasChanges] = useState(false);
 
   // Fetch asset
-  const { data: asset, isLoading } = useQuery({
+  const { data: asset, isLoading, error: fetchError } = useQuery({
     queryKey: ['asset', id],
     queryFn: () => getAsset(id!),
     enabled: !!id,
   });
+
+  // Success message state
+  const [showSavedMessage, setShowSavedMessage] = useState(false);
+  const [aiMessage, setAiMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [fileMessage, setFileMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Fetch reference data
   const { data: assetTypes } = useQuery({
@@ -88,6 +93,9 @@ export function EditAsset() {
     onSuccess: () => {
       setLastSaved(new Date());
       setHasChanges(false);
+      setShowSavedMessage(true);
+      // Hide the saved message after 3 seconds
+      setTimeout(() => setShowSavedMessage(false), 3000);
       queryClient.invalidateQueries({ queryKey: ['asset', id] });
     },
   });
@@ -108,7 +116,12 @@ export function EditAsset() {
       setShowFileModal(false);
       setFileTarget('');
       setFileUrl('');
+      setFileMessage({ type: 'success', text: 'File attached successfully' });
+      setTimeout(() => setFileMessage(null), 3000);
       queryClient.invalidateQueries({ queryKey: ['asset', id] });
+    },
+    onError: (error) => {
+      setFileMessage({ type: 'error', text: error instanceof Error ? error.message : 'Failed to attach file' });
     },
   });
 
@@ -124,7 +137,12 @@ export function EditAsset() {
     onSuccess: () => {
       setShowAIModal(false);
       setExtraDocUrls('');
+      setAiMessage({ type: 'success', text: 'AI prefill completed successfully' });
+      setTimeout(() => setAiMessage(null), 3000);
       queryClient.invalidateQueries({ queryKey: ['asset', id] });
+    },
+    onError: (error) => {
+      setAiMessage({ type: 'error', text: error instanceof Error ? error.message : 'AI prefill failed' });
     },
   });
 
@@ -171,6 +189,17 @@ export function EditAsset() {
     );
   }
 
+  if (fetchError) {
+    return (
+      <div className="text-center py-12">
+        <p className="text-red-600 font-medium">Failed to load asset</p>
+        <p className="text-red-500 text-sm mt-1">
+          {fetchError instanceof Error ? fetchError.message : 'Unknown error'}
+        </p>
+      </div>
+    );
+  }
+
   if (!asset) {
     return (
       <div className="text-center py-12 text-[#7A7A7A]">
@@ -194,7 +223,12 @@ export function EditAsset() {
             <Badge variant="outline" className="text-[#4A4A4A]">
               {asset.system_meta?.version || 'v1'}
             </Badge>
-            {lastSaved && (
+            {showSavedMessage && (
+              <span className="text-sm text-green-600 font-medium">
+                Saved!
+              </span>
+            )}
+            {lastSaved && !showSavedMessage && (
               <span className="text-sm text-[#7A7A7A]">
                 Last saved at {lastSaved.toLocaleTimeString()}
               </span>
@@ -218,6 +252,18 @@ export function EditAsset() {
           </Button>
         </div>
       </div>
+
+      {/* Success/Error Messages */}
+      {aiMessage && (
+        <div className={`rounded-lg p-4 ${aiMessage.type === 'success' ? 'bg-green-50 border border-green-200 text-green-700' : 'bg-red-50 border border-red-200 text-red-700'}`}>
+          {aiMessage.text}
+        </div>
+      )}
+      {fileMessage && (
+        <div className={`rounded-lg p-4 ${fileMessage.type === 'success' ? 'bg-green-50 border border-green-200 text-green-700' : 'bg-red-50 border border-red-200 text-red-700'}`}>
+          {fileMessage.text}
+        </div>
+      )}
 
       {/* Basic Information */}
       <Card className="bg-white rounded-xl shadow-sm">

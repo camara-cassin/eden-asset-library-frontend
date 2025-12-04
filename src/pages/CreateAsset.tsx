@@ -12,6 +12,15 @@ import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
 import type { AssetType, ScalingPotential } from '../types/asset';
 
+interface ValidationErrors {
+  assetType?: string;
+  assetName?: string;
+  category?: string;
+  shortSummary?: string;
+  contributorName?: string;
+  contributorEmail?: string;
+}
+
 export function CreateAsset() {
   const navigate = useNavigate();
 
@@ -28,6 +37,40 @@ export function CreateAsset() {
   const [contributorNotes, setContributorNotes] = useState('');
   const [assetTypeDescription, setAssetTypeDescription] = useState('');
   const [intendedUseCases, setIntendedUseCases] = useState('');
+  const [validationErrors, setValidationErrors] = useState<ValidationErrors>({});
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
+
+  const validateForm = (): boolean => {
+    const errors: ValidationErrors = {};
+    
+    if (!assetType) {
+      errors.assetType = 'Asset type is required';
+    }
+    if (!assetName.trim()) {
+      errors.assetName = 'Asset name is required';
+    }
+    if (!category) {
+      errors.category = 'Category is required';
+    }
+    if (!shortSummary.trim()) {
+      errors.shortSummary = 'Short summary is required';
+    }
+    if (!contributorName.trim()) {
+      errors.contributorName = 'Contributor name is required';
+    }
+    if (!contributorEmail.trim()) {
+      errors.contributorEmail = 'Contributor email is required';
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contributorEmail)) {
+      errors.contributorEmail = 'Please enter a valid email address';
+    }
+    
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const handleBlur = (field: string) => {
+    setTouched((prev) => ({ ...prev, [field]: true }));
+  };
 
   // Fetch reference data
   const { data: assetTypes } = useQuery({
@@ -55,12 +98,29 @@ export function CreateAsset() {
   const createMutation = useMutation({
     mutationFn: createAsset,
     onSuccess: (data) => {
-      navigate(`/assets/${data.id}/edit`);
+      // Use asset_id from backend response (format: ASSET_XXXX)
+      const assetId = data.asset_id || data.id;
+      navigate(`/assets/${assetId}/edit`);
     },
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Mark all fields as touched
+    setTouched({
+      assetType: true,
+      assetName: true,
+      category: true,
+      shortSummary: true,
+      contributorName: true,
+      contributorEmail: true,
+    });
+    
+    if (!validateForm()) {
+      return;
+    }
+    
     createMutation.mutate({
       asset_type: assetType,
       basic_information: {
@@ -98,7 +158,7 @@ export function CreateAsset() {
               <div className="space-y-2">
                 <Label htmlFor="assetType" className="text-[#1A1A1A]">Asset Type *</Label>
                 <Select value={assetType} onValueChange={(v) => setAssetType(v as AssetType)}>
-                  <SelectTrigger className="border-[#D8D8D8]">
+                  <SelectTrigger className={`border-[#D8D8D8] ${touched.assetType && validationErrors.assetType ? 'border-red-500' : ''}`}>
                     <SelectValue placeholder="Select type" />
                   </SelectTrigger>
                   <SelectContent>
@@ -109,6 +169,9 @@ export function CreateAsset() {
                     ))}
                   </SelectContent>
                 </Select>
+                {touched.assetType && validationErrors.assetType && (
+                  <p className="text-sm text-red-500">{validationErrors.assetType}</p>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -117,16 +180,19 @@ export function CreateAsset() {
                   id="assetName"
                   value={assetName}
                   onChange={(e) => setAssetName(e.target.value)}
+                  onBlur={() => handleBlur('assetName')}
                   placeholder="Enter asset name"
-                  required
-                  className="border-[#D8D8D8] focus:ring-[#1B4FFF]"
+                  className={`border-[#D8D8D8] focus:ring-[#1B4FFF] ${touched.assetName && validationErrors.assetName ? 'border-red-500' : ''}`}
                 />
+                {touched.assetName && validationErrors.assetName && (
+                  <p className="text-sm text-red-500">{validationErrors.assetName}</p>
+                )}
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="category" className="text-[#1A1A1A]">Category *</Label>
                 <Select value={category} onValueChange={setCategory}>
-                  <SelectTrigger className="border-[#D8D8D8]">
+                  <SelectTrigger className={`border-[#D8D8D8] ${touched.category && validationErrors.category ? 'border-red-500' : ''}`}>
                     <SelectValue placeholder="Select category" />
                   </SelectTrigger>
                   <SelectContent>
@@ -137,6 +203,9 @@ export function CreateAsset() {
                     ))}
                   </SelectContent>
                 </Select>
+                {touched.category && validationErrors.category && (
+                  <p className="text-sm text-red-500">{validationErrors.category}</p>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -173,15 +242,19 @@ export function CreateAsset() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="shortSummary" className="text-[#1A1A1A]">Short Summary</Label>
+              <Label htmlFor="shortSummary" className="text-[#1A1A1A]">Short Summary *</Label>
               <Textarea
                 id="shortSummary"
                 value={shortSummary}
                 onChange={(e) => setShortSummary(e.target.value)}
+                onBlur={() => handleBlur('shortSummary')}
                 placeholder="Brief description of the asset"
                 rows={3}
-                className="border-[#D8D8D8] focus:ring-[#1B4FFF]"
+                className={`border-[#D8D8D8] focus:ring-[#1B4FFF] ${touched.shortSummary && validationErrors.shortSummary ? 'border-red-500' : ''}`}
               />
+              {touched.shortSummary && validationErrors.shortSummary && (
+                <p className="text-sm text-red-500">{validationErrors.shortSummary}</p>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -194,26 +267,34 @@ export function CreateAsset() {
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="contributorName" className="text-[#1A1A1A]">Name</Label>
+                <Label htmlFor="contributorName" className="text-[#1A1A1A]">Name *</Label>
                 <Input
                   id="contributorName"
                   value={contributorName}
                   onChange={(e) => setContributorName(e.target.value)}
+                  onBlur={() => handleBlur('contributorName')}
                   placeholder="Contributor name"
-                  className="border-[#D8D8D8] focus:ring-[#1B4FFF]"
+                  className={`border-[#D8D8D8] focus:ring-[#1B4FFF] ${touched.contributorName && validationErrors.contributorName ? 'border-red-500' : ''}`}
                 />
+                {touched.contributorName && validationErrors.contributorName && (
+                  <p className="text-sm text-red-500">{validationErrors.contributorName}</p>
+                )}
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="contributorEmail" className="text-[#1A1A1A]">Email</Label>
+                <Label htmlFor="contributorEmail" className="text-[#1A1A1A]">Email *</Label>
                 <Input
                   id="contributorEmail"
                   type="email"
                   value={contributorEmail}
                   onChange={(e) => setContributorEmail(e.target.value)}
+                  onBlur={() => handleBlur('contributorEmail')}
                   placeholder="contributor@example.com"
-                  className="border-[#D8D8D8] focus:ring-[#1B4FFF]"
+                  className={`border-[#D8D8D8] focus:ring-[#1B4FFF] ${touched.contributorEmail && validationErrors.contributorEmail ? 'border-red-500' : ''}`}
                 />
+                {touched.contributorEmail && validationErrors.contributorEmail && (
+                  <p className="text-sm text-red-500">{validationErrors.contributorEmail}</p>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -294,7 +375,7 @@ export function CreateAsset() {
           </Button>
           <Button
             type="submit"
-            disabled={createMutation.isPending || !assetName || !category}
+            disabled={createMutation.isPending}
             className="bg-[#1B4FFF] hover:bg-[#0F2C8C] text-white"
           >
             {createMutation.isPending ? (

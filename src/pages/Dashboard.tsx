@@ -37,7 +37,7 @@ export function Dashboard() {
   };
 
   // Fetch assets
-  const { data: assetsData, isLoading: assetsLoading } = useQuery({
+  const { data: assetsData, isLoading: assetsLoading, error: assetsError } = useQuery({
     queryKey: ['assets', activeTab, searchQuery, categoryFilter, assetTypeFilter, statusFilter, scalingFilter],
     queryFn: () =>
       listAssets({
@@ -200,6 +200,13 @@ export function Dashboard() {
           {assetsLoading ? (
             <div className="flex items-center justify-center py-12">
               <Spinner className="w-8 h-8 text-[#1B4FFF]" />
+            </div>
+          ) : assetsError ? (
+            <div className="flex flex-col items-center justify-center py-12 text-red-600">
+              <p className="font-medium">Failed to load assets</p>
+              <p className="text-sm text-red-500 mt-1">
+                {assetsError instanceof Error ? assetsError.message : 'Unknown error'}
+              </p>
             </div>
           ) : (
             <Table>
