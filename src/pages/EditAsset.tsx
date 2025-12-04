@@ -459,6 +459,607 @@ export function EditAsset() {
         </CardContent>
       </Card>
 
+      {/* Economics */}
+      <Card className="bg-white rounded-xl shadow-sm">
+        <CardHeader>
+          <CardTitle className="text-xl text-[#1A1A1A]">Economics</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <Label className="text-[#1A1A1A]">Retail Price</Label>
+              <Input
+                type="number"
+                value={formData.economics?.retail_price || ''}
+                onChange={(e) => updateFormField('economics.retail_price', e.target.value ? Number(e.target.value) : undefined)}
+                className="border-[#D8D8D8]"
+                placeholder="0.00"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[#1A1A1A]">Wholesale Price</Label>
+              <Input
+                type="number"
+                value={formData.economics?.wholesale_price || ''}
+                onChange={(e) => updateFormField('economics.wholesale_price', e.target.value ? Number(e.target.value) : undefined)}
+                className="border-[#D8D8D8]"
+                placeholder="0.00"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[#1A1A1A]">Minimum Order Quantity</Label>
+              <Input
+                type="number"
+                value={formData.economics?.minimum_order_quantity || ''}
+                onChange={(e) => updateFormField('economics.minimum_order_quantity', e.target.value ? Number(e.target.value) : undefined)}
+                className="border-[#D8D8D8]"
+                placeholder="1"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[#1A1A1A]">Production Lead Time (days)</Label>
+              <Input
+                type="number"
+                value={formData.economics?.production_lead_time_days || ''}
+                onChange={(e) => updateFormField('economics.production_lead_time_days', e.target.value ? Number(e.target.value) : undefined)}
+                className="border-[#D8D8D8]"
+                placeholder="0"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[#1A1A1A]">Production Capacity/Month</Label>
+              <Input
+                type="number"
+                value={formData.economics?.production_capacity_per_month || ''}
+                onChange={(e) => updateFormField('economics.production_capacity_per_month', e.target.value ? Number(e.target.value) : undefined)}
+                className="border-[#D8D8D8]"
+                placeholder="0"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[#1A1A1A]">Plan Access Type</Label>
+              <Select
+                value={formData.economics?.plan_access_type || ''}
+                onValueChange={(v) => updateFormField('economics.plan_access_type', v)}
+              >
+                <SelectTrigger className="border-[#D8D8D8]">
+                  <SelectValue placeholder="Select access type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="free">Free</SelectItem>
+                  <SelectItem value="paid">Paid</SelectItem>
+                  <SelectItem value="subscription">Subscription</SelectItem>
+                  <SelectItem value="donation">Donation</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Environmental Impact */}
+      <Card className="bg-white rounded-xl shadow-sm">
+        <CardHeader>
+          <CardTitle className="text-xl text-[#1A1A1A]">Environmental Impact</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <Label className="text-[#1A1A1A]">Embodied Carbon (kg CO2e)</Label>
+              <Input
+                type="number"
+                value={formData.environmental_impact?.embodied_carbon_kg_co2e || ''}
+                onChange={(e) => updateFormField('environmental_impact.embodied_carbon_kg_co2e', e.target.value ? Number(e.target.value) : undefined)}
+                className="border-[#D8D8D8]"
+                placeholder="0"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[#1A1A1A]">Operational Carbon (kg CO2e/year)</Label>
+              <Input
+                type="number"
+                value={formData.environmental_impact?.operational_carbon_kg_co2e_per_year || ''}
+                onChange={(e) => updateFormField('environmental_impact.operational_carbon_kg_co2e_per_year', e.target.value ? Number(e.target.value) : undefined)}
+                className="border-[#D8D8D8]"
+                placeholder="0"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[#1A1A1A]">Material Toxicity Level</Label>
+              <Input
+                value={formData.environmental_impact?.material_toxicity_level || ''}
+                onChange={(e) => updateFormField('environmental_impact.material_toxicity_level', e.target.value)}
+                className="border-[#D8D8D8]"
+                placeholder="e.g., Low, Medium, High"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[#1A1A1A]">Recyclability (%)</Label>
+              <Input
+                type="number"
+                value={formData.environmental_impact?.recyclability_percent || ''}
+                onChange={(e) => updateFormField('environmental_impact.recyclability_percent', e.target.value ? Number(e.target.value) : undefined)}
+                className="border-[#D8D8D8]"
+                placeholder="0-100"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[#1A1A1A]">Biodegradation Timeline (years)</Label>
+              <Input
+                type="number"
+                value={formData.environmental_impact?.biodegradation_timeline_years || ''}
+                onChange={(e) => updateFormField('environmental_impact.biodegradation_timeline_years', e.target.value ? Number(e.target.value) : undefined)}
+                className="border-[#D8D8D8]"
+                placeholder="0"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[#1A1A1A]">End of Life Pathways</Label>
+              <Input
+                value={formData.environmental_impact?.end_of_life_pathways?.join(', ') || ''}
+                onChange={(e) => updateFormField('environmental_impact.end_of_life_pathways', e.target.value ? e.target.value.split(',').map(s => s.trim()) : [])}
+                className="border-[#D8D8D8]"
+                placeholder="Recycling, Composting, etc."
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label className="text-[#1A1A1A]">Air Pollution Notes</Label>
+              <Textarea
+                value={formData.environmental_impact?.air_pollution_notes || ''}
+                onChange={(e) => updateFormField('environmental_impact.air_pollution_notes', e.target.value)}
+                className="border-[#D8D8D8]"
+                rows={2}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[#1A1A1A]">Water Pollution Notes</Label>
+              <Textarea
+                value={formData.environmental_impact?.water_pollution_notes || ''}
+                onChange={(e) => updateFormField('environmental_impact.water_pollution_notes', e.target.value)}
+                className="border-[#D8D8D8]"
+                rows={2}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[#1A1A1A]">Soil Pollution Notes</Label>
+              <Textarea
+                value={formData.environmental_impact?.soil_pollution_notes || ''}
+                onChange={(e) => updateFormField('environmental_impact.soil_pollution_notes', e.target.value)}
+                className="border-[#D8D8D8]"
+                rows={2}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[#1A1A1A]">Regenerative Outputs Notes</Label>
+              <Textarea
+                value={formData.environmental_impact?.regenerative_outputs_notes || ''}
+                onChange={(e) => updateFormField('environmental_impact.regenerative_outputs_notes', e.target.value)}
+                className="border-[#D8D8D8]"
+                rows={2}
+              />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Human Impact */}
+      <Card className="bg-white rounded-xl shadow-sm">
+        <CardHeader>
+          <CardTitle className="text-xl text-[#1A1A1A]">Human Impact</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <Label className="text-[#1A1A1A]">Safety Rating</Label>
+              <Input
+                value={formData.human_impact?.safety_rating || ''}
+                onChange={(e) => updateFormField('human_impact.safety_rating', e.target.value)}
+                className="border-[#D8D8D8]"
+                placeholder="e.g., A, B, C"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[#1A1A1A]">Noise Level (dB)</Label>
+              <Input
+                type="number"
+                value={formData.human_impact?.noise_level_db || ''}
+                onChange={(e) => updateFormField('human_impact.noise_level_db', e.target.value ? Number(e.target.value) : undefined)}
+                className="border-[#D8D8D8]"
+                placeholder="0"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[#1A1A1A]">Ergonomics Score</Label>
+              <Input
+                type="number"
+                value={formData.human_impact?.ergonomics_score || ''}
+                onChange={(e) => updateFormField('human_impact.ergonomics_score', e.target.value ? Number(e.target.value) : undefined)}
+                className="border-[#D8D8D8]"
+                placeholder="0-100"
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label className="text-[#1A1A1A]">Emissions During Use Notes</Label>
+              <Textarea
+                value={formData.human_impact?.emissions_during_use_notes || ''}
+                onChange={(e) => updateFormField('human_impact.emissions_during_use_notes', e.target.value)}
+                className="border-[#D8D8D8]"
+                rows={2}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[#1A1A1A]">Off-Gassing Notes</Label>
+              <Textarea
+                value={formData.human_impact?.off_gassing_notes || ''}
+                onChange={(e) => updateFormField('human_impact.off_gassing_notes', e.target.value)}
+                className="border-[#D8D8D8]"
+                rows={2}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[#1A1A1A]">Health Benefits Notes</Label>
+              <Textarea
+                value={formData.human_impact?.health_benefits_notes || ''}
+                onChange={(e) => updateFormField('human_impact.health_benefits_notes', e.target.value)}
+                className="border-[#D8D8D8]"
+                rows={2}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[#1A1A1A]">Risk Factors Notes</Label>
+              <Textarea
+                value={formData.human_impact?.risk_factors_notes || ''}
+                onChange={(e) => updateFormField('human_impact.risk_factors_notes', e.target.value)}
+                className="border-[#D8D8D8]"
+                rows={2}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[#1A1A1A]">Labour Demand Notes</Label>
+              <Textarea
+                value={formData.human_impact?.labour_demand_notes || ''}
+                onChange={(e) => updateFormField('human_impact.labour_demand_notes', e.target.value)}
+                className="border-[#D8D8D8]"
+                rows={2}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[#1A1A1A]">Social Benefit Notes</Label>
+              <Textarea
+                value={formData.human_impact?.social_benefit_notes || ''}
+                onChange={(e) => updateFormField('human_impact.social_benefit_notes', e.target.value)}
+                className="border-[#D8D8D8]"
+                rows={2}
+              />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Functional Inputs & Outputs */}
+      <Card className="bg-white rounded-xl shadow-sm">
+        <CardHeader>
+          <CardTitle className="text-xl text-[#1A1A1A]">Functional Inputs & Outputs</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Inputs */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="font-medium text-[#1A1A1A]">Inputs</h3>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const inputs = formData.functional_io?.inputs || [];
+                  updateFormField('functional_io.inputs', [...inputs, { input_type: '', quantity: undefined, time_profile: '', quality_spec: '' }]);
+                }}
+                className="border-[#1B4FFF] text-[#1B4FFF]"
+              >
+                Add Row
+              </Button>
+            </div>
+            {formData.functional_io?.inputs && formData.functional_io.inputs.length > 0 ? (
+              <div className="space-y-2">
+                {formData.functional_io.inputs.map((input, index) => (
+                  <div key={index} className="grid grid-cols-5 gap-2 items-end">
+                    <div className="space-y-1">
+                      <Label className="text-xs text-[#7A7A7A]">Input Type</Label>
+                      <Input
+                        value={input.input_type || ''}
+                        onChange={(e) => {
+                          const inputs = [...(formData.functional_io?.inputs || [])];
+                          inputs[index] = { ...inputs[index], input_type: e.target.value };
+                          updateFormField('functional_io.inputs', inputs);
+                        }}
+                        className="border-[#D8D8D8]"
+                        placeholder="Type"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs text-[#7A7A7A]">Quantity</Label>
+                      <Input
+                        type="number"
+                        value={input.quantity || ''}
+                        onChange={(e) => {
+                          const inputs = [...(formData.functional_io?.inputs || [])];
+                          inputs[index] = { ...inputs[index], quantity: e.target.value ? Number(e.target.value) : undefined };
+                          updateFormField('functional_io.inputs', inputs);
+                        }}
+                        className="border-[#D8D8D8]"
+                        placeholder="0"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs text-[#7A7A7A]">Time Profile</Label>
+                      <Input
+                        value={input.time_profile || ''}
+                        onChange={(e) => {
+                          const inputs = [...(formData.functional_io?.inputs || [])];
+                          inputs[index] = { ...inputs[index], time_profile: e.target.value };
+                          updateFormField('functional_io.inputs', inputs);
+                        }}
+                        className="border-[#D8D8D8]"
+                        placeholder="Profile"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs text-[#7A7A7A]">Quality Spec</Label>
+                      <Input
+                        value={input.quality_spec || ''}
+                        onChange={(e) => {
+                          const inputs = [...(formData.functional_io?.inputs || [])];
+                          inputs[index] = { ...inputs[index], quality_spec: e.target.value };
+                          updateFormField('functional_io.inputs', inputs);
+                        }}
+                        className="border-[#D8D8D8]"
+                        placeholder="Spec"
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const inputs = formData.functional_io?.inputs?.filter((_, i) => i !== index) || [];
+                        updateFormField('functional_io.inputs', inputs);
+                      }}
+                      className="border-red-500 text-red-500 hover:bg-red-50"
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-[#7A7A7A] text-sm">No inputs defined. Click "Add Row" to add one.</p>
+            )}
+          </div>
+
+          {/* Outputs */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="font-medium text-[#1A1A1A]">Outputs</h3>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const outputs = formData.functional_io?.outputs || [];
+                  updateFormField('functional_io.outputs', [...outputs, { output_type: '', quantity: undefined, variability_profile: '', quality_spec: '' }]);
+                }}
+                className="border-[#1B4FFF] text-[#1B4FFF]"
+              >
+                Add Row
+              </Button>
+            </div>
+            {formData.functional_io?.outputs && formData.functional_io.outputs.length > 0 ? (
+              <div className="space-y-2">
+                {formData.functional_io.outputs.map((output, index) => (
+                  <div key={index} className="grid grid-cols-5 gap-2 items-end">
+                    <div className="space-y-1">
+                      <Label className="text-xs text-[#7A7A7A]">Output Type</Label>
+                      <Input
+                        value={output.output_type || ''}
+                        onChange={(e) => {
+                          const outputs = [...(formData.functional_io?.outputs || [])];
+                          outputs[index] = { ...outputs[index], output_type: e.target.value };
+                          updateFormField('functional_io.outputs', outputs);
+                        }}
+                        className="border-[#D8D8D8]"
+                        placeholder="Type"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs text-[#7A7A7A]">Quantity</Label>
+                      <Input
+                        type="number"
+                        value={output.quantity || ''}
+                        onChange={(e) => {
+                          const outputs = [...(formData.functional_io?.outputs || [])];
+                          outputs[index] = { ...outputs[index], quantity: e.target.value ? Number(e.target.value) : undefined };
+                          updateFormField('functional_io.outputs', outputs);
+                        }}
+                        className="border-[#D8D8D8]"
+                        placeholder="0"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs text-[#7A7A7A]">Variability Profile</Label>
+                      <Input
+                        value={output.variability_profile || ''}
+                        onChange={(e) => {
+                          const outputs = [...(formData.functional_io?.outputs || [])];
+                          outputs[index] = { ...outputs[index], variability_profile: e.target.value };
+                          updateFormField('functional_io.outputs', outputs);
+                        }}
+                        className="border-[#D8D8D8]"
+                        placeholder="Profile"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs text-[#7A7A7A]">Quality Spec</Label>
+                      <Input
+                        value={output.quality_spec || ''}
+                        onChange={(e) => {
+                          const outputs = [...(formData.functional_io?.outputs || [])];
+                          outputs[index] = { ...outputs[index], quality_spec: e.target.value };
+                          updateFormField('functional_io.outputs', outputs);
+                        }}
+                        className="border-[#D8D8D8]"
+                        placeholder="Spec"
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const outputs = formData.functional_io?.outputs?.filter((_, i) => i !== index) || [];
+                        updateFormField('functional_io.outputs', outputs);
+                      }}
+                      className="border-red-500 text-red-500 hover:bg-red-50"
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-[#7A7A7A] text-sm">No outputs defined. Click "Add Row" to add one.</p>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Deployment */}
+      <Card className="bg-white rounded-xl shadow-sm">
+        <CardHeader>
+          <CardTitle className="text-xl text-[#1A1A1A]">Deployment</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label className="text-[#1A1A1A]">Climate Zones</Label>
+              <Input
+                value={formData.deployment?.climate_zones?.join(', ') || ''}
+                onChange={(e) => updateFormField('deployment.climate_zones', e.target.value ? e.target.value.split(',').map(s => s.trim()) : [])}
+                className="border-[#D8D8D8]"
+                placeholder="Tropical, Temperate, etc."
+              />
+              <p className="text-xs text-[#7A7A7A]">Separate multiple zones with commas</p>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[#1A1A1A]">Soil Requirements</Label>
+              <Input
+                value={formData.deployment?.soil_requirements?.join(', ') || ''}
+                onChange={(e) => updateFormField('deployment.soil_requirements', e.target.value ? e.target.value.split(',').map(s => s.trim()) : [])}
+                className="border-[#D8D8D8]"
+                placeholder="Sandy, Clay, Loam, etc."
+              />
+              <p className="text-xs text-[#7A7A7A]">Separate multiple requirements with commas</p>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="space-y-2">
+              <Label className="text-[#1A1A1A]">Min Operating Temp (°C)</Label>
+              <Input
+                type="number"
+                value={formData.deployment?.min_operating_temperature ?? ''}
+                onChange={(e) => updateFormField('deployment.min_operating_temperature', e.target.value ? Number(e.target.value) : undefined)}
+                className="border-[#D8D8D8]"
+                placeholder="-40"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[#1A1A1A]">Max Operating Temp (°C)</Label>
+              <Input
+                type="number"
+                value={formData.deployment?.max_operating_temperature ?? ''}
+                onChange={(e) => updateFormField('deployment.max_operating_temperature', e.target.value ? Number(e.target.value) : undefined)}
+                className="border-[#D8D8D8]"
+                placeholder="60"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[#1A1A1A]">Min Humidity (%)</Label>
+              <Input
+                type="number"
+                value={formData.deployment?.min_relative_humidity ?? ''}
+                onChange={(e) => updateFormField('deployment.min_relative_humidity', e.target.value ? Number(e.target.value) : undefined)}
+                className="border-[#D8D8D8]"
+                placeholder="0"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[#1A1A1A]">Max Humidity (%)</Label>
+              <Input
+                type="number"
+                value={formData.deployment?.max_relative_humidity ?? ''}
+                onChange={(e) => updateFormField('deployment.max_relative_humidity', e.target.value ? Number(e.target.value) : undefined)}
+                className="border-[#D8D8D8]"
+                placeholder="100"
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="space-y-2">
+              <Label className="text-[#1A1A1A]">Max Wind Speed (m/s)</Label>
+              <Input
+                type="number"
+                value={formData.deployment?.max_wind_speed_rating ?? ''}
+                onChange={(e) => updateFormField('deployment.max_wind_speed_rating', e.target.value ? Number(e.target.value) : undefined)}
+                className="border-[#D8D8D8]"
+                placeholder="0"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[#1A1A1A]">Max Rainfall (mm/hr)</Label>
+              <Input
+                type="number"
+                value={formData.deployment?.max_rainfall_intensity ?? ''}
+                onChange={(e) => updateFormField('deployment.max_rainfall_intensity', e.target.value ? Number(e.target.value) : undefined)}
+                className="border-[#D8D8D8]"
+                placeholder="0"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[#1A1A1A]">Min Altitude (m)</Label>
+              <Input
+                type="number"
+                value={formData.deployment?.min_altitude ?? ''}
+                onChange={(e) => updateFormField('deployment.min_altitude', e.target.value ? Number(e.target.value) : undefined)}
+                className="border-[#D8D8D8]"
+                placeholder="0"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[#1A1A1A]">Max Altitude (m)</Label>
+              <Input
+                type="number"
+                value={formData.deployment?.max_altitude ?? ''}
+                onChange={(e) => updateFormField('deployment.max_altitude', e.target.value ? Number(e.target.value) : undefined)}
+                className="border-[#D8D8D8]"
+                placeholder="0"
+              />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label className="text-[#1A1A1A]">Geographic Suitability Notes</Label>
+            <Textarea
+              value={formData.deployment?.geographic_suitability_notes || ''}
+              onChange={(e) => updateFormField('deployment.geographic_suitability_notes', e.target.value)}
+              className="border-[#D8D8D8]"
+              rows={3}
+            />
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Error displays */}
       {updateMutation.isError && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">

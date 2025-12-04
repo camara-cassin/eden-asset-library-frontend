@@ -153,7 +153,22 @@ export interface PlanConfiguration {
   repair_time_hours?: number;
 }
 
-export interface FunctionalIOItem {
+export interface FunctionalIOInput {
+  input_type?: string;
+  quantity?: number;
+  time_profile?: string;
+  quality_spec?: string;
+  name?: string;
+  type?: string;
+  unit?: string;
+  description?: string;
+}
+
+export interface FunctionalIOOutput {
+  output_type?: string;
+  quantity?: number;
+  variability_profile?: string;
+  quality_spec?: string;
   name?: string;
   type?: string;
   unit?: string;
@@ -161,12 +176,17 @@ export interface FunctionalIOItem {
 }
 
 export interface FunctionalIO {
-  inputs?: FunctionalIOItem[];
-  outputs?: FunctionalIOItem[];
+  inputs?: FunctionalIOInput[];
+  outputs?: FunctionalIOOutput[];
 }
 
 export interface Economics {
   retail_price?: number;
+  wholesale_price?: number;
+  minimum_order_quantity?: number;
+  production_lead_time_days?: number;
+  production_capacity_per_month?: number;
+  plan_access_type?: 'free' | 'paid' | 'subscription' | 'donation';
   currency?: string;
   price_notes?: string;
   estimated_lifespan_years?: number;
@@ -174,11 +194,46 @@ export interface Economics {
   roi_notes?: string;
 }
 
+export interface EnvironmentalImpact {
+  embodied_carbon_kg_co2e?: number;
+  operational_carbon_kg_co2e_per_year?: number;
+  air_pollution_notes?: string;
+  water_pollution_notes?: string;
+  soil_pollution_notes?: string;
+  material_toxicity_level?: string;
+  recyclability_percent?: number;
+  biodegradation_timeline_years?: number;
+  end_of_life_pathways?: string[];
+  regenerative_outputs_notes?: string;
+}
+
+export interface HumanImpact {
+  safety_rating?: string;
+  emissions_during_use_notes?: string;
+  off_gassing_notes?: string;
+  noise_level_db?: number;
+  health_benefits_notes?: string;
+  risk_factors_notes?: string;
+  ergonomics_score?: number;
+  labour_demand_notes?: string;
+  social_benefit_notes?: string;
+}
+
 export interface Deployment {
   climate_zones?: string[];
   terrain_types?: string[];
   infrastructure_requirements?: string[];
   deployment_notes?: string;
+  min_operating_temperature?: number;
+  max_operating_temperature?: number;
+  min_relative_humidity?: number;
+  max_relative_humidity?: number;
+  max_wind_speed_rating?: number;
+  max_rainfall_intensity?: number;
+  min_altitude?: number;
+  max_altitude?: number;
+  soil_requirements?: string[];
+  geographic_suitability_notes?: string;
 }
 
 export interface EdenImpactSummary {
@@ -202,6 +257,8 @@ export interface EdenAsset {
   plan_configuration?: PlanConfiguration;
   functional_io?: FunctionalIO;
   economics?: Economics;
+  environmental_impact?: EnvironmentalImpact;
+  human_impact?: HumanImpact;
   deployment?: Deployment;
   eden_impact_summary?: EdenImpactSummary;
 }

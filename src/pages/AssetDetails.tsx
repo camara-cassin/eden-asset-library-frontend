@@ -139,6 +139,7 @@ export function AssetDetails() {
           <TabsTrigger value="configuration">Configuration</TabsTrigger>
           <TabsTrigger value="functional-io">Functional IO</TabsTrigger>
           <TabsTrigger value="impact">Impact</TabsTrigger>
+          <TabsTrigger value="deployment">Deployment</TabsTrigger>
         </TabsList>
 
         {/* Summary Tab */}
@@ -341,19 +342,19 @@ export function AssetDetails() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Name</TableHead>
-                        <TableHead>Type</TableHead>
-                        <TableHead>Unit</TableHead>
-                        <TableHead>Description</TableHead>
+                        <TableHead>Input Type</TableHead>
+                        <TableHead>Quantity</TableHead>
+                        <TableHead>Time Profile</TableHead>
+                        <TableHead>Quality Spec</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {asset.functional_io.inputs.map((input, index) => (
                         <TableRow key={index}>
-                          <TableCell>{input.name || '-'}</TableCell>
-                          <TableCell>{input.type || '-'}</TableCell>
-                          <TableCell>{input.unit || '-'}</TableCell>
-                          <TableCell>{input.description || '-'}</TableCell>
+                          <TableCell>{input.input_type || input.name || '-'}</TableCell>
+                          <TableCell>{input.quantity ?? '-'}</TableCell>
+                          <TableCell>{input.time_profile || '-'}</TableCell>
+                          <TableCell>{input.quality_spec || '-'}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -369,19 +370,19 @@ export function AssetDetails() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Name</TableHead>
-                        <TableHead>Type</TableHead>
-                        <TableHead>Unit</TableHead>
-                        <TableHead>Description</TableHead>
+                        <TableHead>Output Type</TableHead>
+                        <TableHead>Quantity</TableHead>
+                        <TableHead>Variability Profile</TableHead>
+                        <TableHead>Quality Spec</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {asset.functional_io.outputs.map((output, index) => (
                         <TableRow key={index}>
-                          <TableCell>{output.name || '-'}</TableCell>
-                          <TableCell>{output.type || '-'}</TableCell>
-                          <TableCell>{output.unit || '-'}</TableCell>
-                          <TableCell>{output.description || '-'}</TableCell>
+                          <TableCell>{output.output_type || output.name || '-'}</TableCell>
+                          <TableCell>{output.quantity ?? '-'}</TableCell>
+                          <TableCell>{output.variability_profile || '-'}</TableCell>
+                          <TableCell>{output.quality_spec || '-'}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -395,7 +396,8 @@ export function AssetDetails() {
         </TabsContent>
 
         {/* Impact Tab */}
-        <TabsContent value="impact">
+        <TabsContent value="impact" className="space-y-4">
+          {/* EDEN Impact Summary */}
           <Card className="bg-white rounded-xl shadow-sm">
             <CardHeader>
               <CardTitle className="text-xl text-[#1A1A1A]">EDEN Impact Summary</CardTitle>
@@ -422,6 +424,314 @@ export function AssetDetails() {
                 </div>
               ) : (
                 <p className="text-[#7A7A7A]">No impact data available.</p>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Economics */}
+          {asset.economics && (asset.economics.retail_price || asset.economics.wholesale_price || asset.economics.plan_access_type) && (
+            <Card className="bg-white rounded-xl shadow-sm">
+              <CardHeader>
+                <CardTitle className="text-xl text-[#1A1A1A]">Economics</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  {asset.economics.retail_price !== undefined && (
+                    <div>
+                      <p className="text-sm text-[#7A7A7A]">Retail Price</p>
+                      <p className="text-[#1A1A1A]">${asset.economics.retail_price}</p>
+                    </div>
+                  )}
+                  {asset.economics.wholesale_price !== undefined && (
+                    <div>
+                      <p className="text-sm text-[#7A7A7A]">Wholesale Price</p>
+                      <p className="text-[#1A1A1A]">${asset.economics.wholesale_price}</p>
+                    </div>
+                  )}
+                  {asset.economics.minimum_order_quantity !== undefined && (
+                    <div>
+                      <p className="text-sm text-[#7A7A7A]">Minimum Order Quantity</p>
+                      <p className="text-[#1A1A1A]">{asset.economics.minimum_order_quantity}</p>
+                    </div>
+                  )}
+                  {asset.economics.production_lead_time_days !== undefined && (
+                    <div>
+                      <p className="text-sm text-[#7A7A7A]">Production Lead Time</p>
+                      <p className="text-[#1A1A1A]">{asset.economics.production_lead_time_days} days</p>
+                    </div>
+                  )}
+                  {asset.economics.production_capacity_per_month !== undefined && (
+                    <div>
+                      <p className="text-sm text-[#7A7A7A]">Production Capacity/Month</p>
+                      <p className="text-[#1A1A1A]">{asset.economics.production_capacity_per_month}</p>
+                    </div>
+                  )}
+                  {asset.economics.plan_access_type && (
+                    <div>
+                      <p className="text-sm text-[#7A7A7A]">Plan Access Type</p>
+                      <p className="text-[#1A1A1A] capitalize">{asset.economics.plan_access_type}</p>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Environmental Impact */}
+          {asset.environmental_impact && Object.values(asset.environmental_impact).some(v => v !== undefined && v !== null && v !== '') && (
+            <Card className="bg-white rounded-xl shadow-sm">
+              <CardHeader>
+                <CardTitle className="text-xl text-[#1A1A1A]">Environmental Impact</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  {asset.environmental_impact.embodied_carbon_kg_co2e !== undefined && (
+                    <div>
+                      <p className="text-sm text-[#7A7A7A]">Embodied Carbon</p>
+                      <p className="text-[#1A1A1A]">{asset.environmental_impact.embodied_carbon_kg_co2e} kg CO2e</p>
+                    </div>
+                  )}
+                  {asset.environmental_impact.operational_carbon_kg_co2e_per_year !== undefined && (
+                    <div>
+                      <p className="text-sm text-[#7A7A7A]">Operational Carbon</p>
+                      <p className="text-[#1A1A1A]">{asset.environmental_impact.operational_carbon_kg_co2e_per_year} kg CO2e/year</p>
+                    </div>
+                  )}
+                  {asset.environmental_impact.material_toxicity_level && (
+                    <div>
+                      <p className="text-sm text-[#7A7A7A]">Material Toxicity Level</p>
+                      <p className="text-[#1A1A1A]">{asset.environmental_impact.material_toxicity_level}</p>
+                    </div>
+                  )}
+                  {asset.environmental_impact.recyclability_percent !== undefined && (
+                    <div>
+                      <p className="text-sm text-[#7A7A7A]">Recyclability</p>
+                      <p className="text-[#1A1A1A]">{asset.environmental_impact.recyclability_percent}%</p>
+                    </div>
+                  )}
+                  {asset.environmental_impact.biodegradation_timeline_years !== undefined && (
+                    <div>
+                      <p className="text-sm text-[#7A7A7A]">Biodegradation Timeline</p>
+                      <p className="text-[#1A1A1A]">{asset.environmental_impact.biodegradation_timeline_years} years</p>
+                    </div>
+                  )}
+                  {asset.environmental_impact.end_of_life_pathways && asset.environmental_impact.end_of_life_pathways.length > 0 && (
+                    <div>
+                      <p className="text-sm text-[#7A7A7A]">End of Life Pathways</p>
+                      <p className="text-[#1A1A1A]">{asset.environmental_impact.end_of_life_pathways.join(', ')}</p>
+                    </div>
+                  )}
+                </div>
+                {(asset.environmental_impact.air_pollution_notes || asset.environmental_impact.water_pollution_notes || asset.environmental_impact.soil_pollution_notes || asset.environmental_impact.regenerative_outputs_notes) && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                    {asset.environmental_impact.air_pollution_notes && (
+                      <div>
+                        <p className="text-sm text-[#7A7A7A]">Air Pollution Notes</p>
+                        <p className="text-[#1A1A1A]">{asset.environmental_impact.air_pollution_notes}</p>
+                      </div>
+                    )}
+                    {asset.environmental_impact.water_pollution_notes && (
+                      <div>
+                        <p className="text-sm text-[#7A7A7A]">Water Pollution Notes</p>
+                        <p className="text-[#1A1A1A]">{asset.environmental_impact.water_pollution_notes}</p>
+                      </div>
+                    )}
+                    {asset.environmental_impact.soil_pollution_notes && (
+                      <div>
+                        <p className="text-sm text-[#7A7A7A]">Soil Pollution Notes</p>
+                        <p className="text-[#1A1A1A]">{asset.environmental_impact.soil_pollution_notes}</p>
+                      </div>
+                    )}
+                    {asset.environmental_impact.regenerative_outputs_notes && (
+                      <div>
+                        <p className="text-sm text-[#7A7A7A]">Regenerative Outputs Notes</p>
+                        <p className="text-[#1A1A1A]">{asset.environmental_impact.regenerative_outputs_notes}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Human Impact */}
+          {asset.human_impact && Object.values(asset.human_impact).some(v => v !== undefined && v !== null && v !== '') && (
+            <Card className="bg-white rounded-xl shadow-sm">
+              <CardHeader>
+                <CardTitle className="text-xl text-[#1A1A1A]">Human Impact</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  {asset.human_impact.safety_rating && (
+                    <div>
+                      <p className="text-sm text-[#7A7A7A]">Safety Rating</p>
+                      <p className="text-[#1A1A1A]">{asset.human_impact.safety_rating}</p>
+                    </div>
+                  )}
+                  {asset.human_impact.noise_level_db !== undefined && (
+                    <div>
+                      <p className="text-sm text-[#7A7A7A]">Noise Level</p>
+                      <p className="text-[#1A1A1A]">{asset.human_impact.noise_level_db} dB</p>
+                    </div>
+                  )}
+                  {asset.human_impact.ergonomics_score !== undefined && (
+                    <div>
+                      <p className="text-sm text-[#7A7A7A]">Ergonomics Score</p>
+                      <p className="text-[#1A1A1A]">{asset.human_impact.ergonomics_score}</p>
+                    </div>
+                  )}
+                </div>
+                {(asset.human_impact.emissions_during_use_notes || asset.human_impact.off_gassing_notes || asset.human_impact.health_benefits_notes || asset.human_impact.risk_factors_notes || asset.human_impact.labour_demand_notes || asset.human_impact.social_benefit_notes) && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                    {asset.human_impact.emissions_during_use_notes && (
+                      <div>
+                        <p className="text-sm text-[#7A7A7A]">Emissions During Use</p>
+                        <p className="text-[#1A1A1A]">{asset.human_impact.emissions_during_use_notes}</p>
+                      </div>
+                    )}
+                    {asset.human_impact.off_gassing_notes && (
+                      <div>
+                        <p className="text-sm text-[#7A7A7A]">Off-Gassing Notes</p>
+                        <p className="text-[#1A1A1A]">{asset.human_impact.off_gassing_notes}</p>
+                      </div>
+                    )}
+                    {asset.human_impact.health_benefits_notes && (
+                      <div>
+                        <p className="text-sm text-[#7A7A7A]">Health Benefits</p>
+                        <p className="text-[#1A1A1A]">{asset.human_impact.health_benefits_notes}</p>
+                      </div>
+                    )}
+                    {asset.human_impact.risk_factors_notes && (
+                      <div>
+                        <p className="text-sm text-[#7A7A7A]">Risk Factors</p>
+                        <p className="text-[#1A1A1A]">{asset.human_impact.risk_factors_notes}</p>
+                      </div>
+                    )}
+                    {asset.human_impact.labour_demand_notes && (
+                      <div>
+                        <p className="text-sm text-[#7A7A7A]">Labour Demand</p>
+                        <p className="text-[#1A1A1A]">{asset.human_impact.labour_demand_notes}</p>
+                      </div>
+                    )}
+                    {asset.human_impact.social_benefit_notes && (
+                      <div>
+                        <p className="text-sm text-[#7A7A7A]">Social Benefits</p>
+                        <p className="text-[#1A1A1A]">{asset.human_impact.social_benefit_notes}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        {/* Deployment Tab */}
+        <TabsContent value="deployment">
+          <Card className="bg-white rounded-xl shadow-sm">
+            <CardHeader>
+              <CardTitle className="text-xl text-[#1A1A1A]">Deployment</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {asset.deployment && Object.values(asset.deployment).some(v => v !== undefined && v !== null && (Array.isArray(v) ? v.length > 0 : v !== '')) ? (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    {asset.deployment.climate_zones && asset.deployment.climate_zones.length > 0 && (
+                      <div>
+                        <p className="text-sm text-[#7A7A7A]">Climate Zones</p>
+                        <p className="text-[#1A1A1A]">{asset.deployment.climate_zones.join(', ')}</p>
+                      </div>
+                    )}
+                    {asset.deployment.terrain_types && asset.deployment.terrain_types.length > 0 && (
+                      <div>
+                        <p className="text-sm text-[#7A7A7A]">Terrain Types</p>
+                        <p className="text-[#1A1A1A]">{asset.deployment.terrain_types.join(', ')}</p>
+                      </div>
+                    )}
+                    {asset.deployment.soil_requirements && asset.deployment.soil_requirements.length > 0 && (
+                      <div>
+                        <p className="text-sm text-[#7A7A7A]">Soil Requirements</p>
+                        <p className="text-[#1A1A1A]">{asset.deployment.soil_requirements.join(', ')}</p>
+                      </div>
+                    )}
+                    {asset.deployment.infrastructure_requirements && asset.deployment.infrastructure_requirements.length > 0 && (
+                      <div className="col-span-2 md:col-span-3">
+                        <p className="text-sm text-[#7A7A7A]">Infrastructure Requirements</p>
+                        <p className="text-[#1A1A1A]">{asset.deployment.infrastructure_requirements.join(', ')}</p>
+                      </div>
+                    )}
+                  </div>
+                  {(asset.deployment.min_operating_temperature !== undefined || asset.deployment.max_operating_temperature !== undefined || asset.deployment.min_relative_humidity !== undefined || asset.deployment.max_relative_humidity !== undefined) && (
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      {asset.deployment.min_operating_temperature !== undefined && (
+                        <div>
+                          <p className="text-sm text-[#7A7A7A]">Min Operating Temp</p>
+                          <p className="text-[#1A1A1A]">{asset.deployment.min_operating_temperature}°C</p>
+                        </div>
+                      )}
+                      {asset.deployment.max_operating_temperature !== undefined && (
+                        <div>
+                          <p className="text-sm text-[#7A7A7A]">Max Operating Temp</p>
+                          <p className="text-[#1A1A1A]">{asset.deployment.max_operating_temperature}°C</p>
+                        </div>
+                      )}
+                      {asset.deployment.min_relative_humidity !== undefined && (
+                        <div>
+                          <p className="text-sm text-[#7A7A7A]">Min Humidity</p>
+                          <p className="text-[#1A1A1A]">{asset.deployment.min_relative_humidity}%</p>
+                        </div>
+                      )}
+                      {asset.deployment.max_relative_humidity !== undefined && (
+                        <div>
+                          <p className="text-sm text-[#7A7A7A]">Max Humidity</p>
+                          <p className="text-[#1A1A1A]">{asset.deployment.max_relative_humidity}%</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {(asset.deployment.max_wind_speed_rating !== undefined || asset.deployment.max_rainfall_intensity !== undefined || asset.deployment.min_altitude !== undefined || asset.deployment.max_altitude !== undefined) && (
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      {asset.deployment.max_wind_speed_rating !== undefined && (
+                        <div>
+                          <p className="text-sm text-[#7A7A7A]">Max Wind Speed</p>
+                          <p className="text-[#1A1A1A]">{asset.deployment.max_wind_speed_rating} m/s</p>
+                        </div>
+                      )}
+                      {asset.deployment.max_rainfall_intensity !== undefined && (
+                        <div>
+                          <p className="text-sm text-[#7A7A7A]">Max Rainfall</p>
+                          <p className="text-[#1A1A1A]">{asset.deployment.max_rainfall_intensity} mm/hr</p>
+                        </div>
+                      )}
+                      {asset.deployment.min_altitude !== undefined && (
+                        <div>
+                          <p className="text-sm text-[#7A7A7A]">Min Altitude</p>
+                          <p className="text-[#1A1A1A]">{asset.deployment.min_altitude} m</p>
+                        </div>
+                      )}
+                      {asset.deployment.max_altitude !== undefined && (
+                        <div>
+                          <p className="text-sm text-[#7A7A7A]">Max Altitude</p>
+                          <p className="text-[#1A1A1A]">{asset.deployment.max_altitude} m</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {asset.deployment.geographic_suitability_notes && (
+                    <div>
+                      <p className="text-sm text-[#7A7A7A]">Geographic Suitability Notes</p>
+                      <p className="text-[#1A1A1A]">{asset.deployment.geographic_suitability_notes}</p>
+                    </div>
+                  )}
+                  {asset.deployment.deployment_notes && (
+                    <div>
+                      <p className="text-sm text-[#7A7A7A]">Deployment Notes</p>
+                      <p className="text-[#1A1A1A]">{asset.deployment.deployment_notes}</p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <p className="text-[#7A7A7A]">No deployment data available.</p>
               )}
             </CardContent>
           </Card>
