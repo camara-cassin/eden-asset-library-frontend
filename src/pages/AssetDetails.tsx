@@ -1,6 +1,7 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getAsset, approveAsset, rejectAsset } from '../api/assets';
+import { useAuth } from '../contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -16,8 +17,11 @@ export function AssetDetails() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
+  
+  const isAdmin = user?.role === 'admin';
 
   const { data: asset, isLoading, error: fetchError } = useQuery({
     queryKey: ['asset', id],
@@ -109,25 +113,25 @@ export function AssetDetails() {
           >
             Edit
           </Button>
-          {asset.system_meta?.status === 'under_review' && (
-            <>
-              <Button
-                onClick={() => approveMutation.mutate()}
-                disabled={approveMutation.isPending}
-                className="bg-green-600 hover:bg-green-700 text-white"
-              >
-                {approveMutation.isPending ? <Spinner className="w-4 h-4 mr-2" /> : null}
-                Approve
-              </Button>
-              <Button
-                onClick={() => setShowRejectModal(true)}
-                variant="outline"
-                className="border-red-500 text-red-500 hover:bg-red-50"
-              >
-                Reject
-              </Button>
-            </>
-          )}
+                    {asset.system_meta?.status === 'under_review' && isAdmin && (
+                      <>
+                        <Button
+                          onClick={() => approveMutation.mutate()}
+                          disabled={approveMutation.isPending}
+                          className="bg-green-600 hover:bg-green-700 text-white"
+                        >
+                          {approveMutation.isPending ? <Spinner className="w-4 h-4 mr-2" /> : null}
+                          Approve
+                        </Button>
+                        <Button
+                          onClick={() => setShowRejectModal(true)}
+                          variant="outline"
+                          className="border-red-500 text-red-500 hover:bg-red-50"
+                        >
+                          Reject
+                        </Button>
+                      </>
+                    )}
         </div>
       </div>
 

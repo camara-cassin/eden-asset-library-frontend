@@ -98,9 +98,8 @@ export function CreateAsset() {
   const createMutation = useMutation({
     mutationFn: createAsset,
     onSuccess: (data) => {
-      // Use asset_id from backend response (format: ASSET_XXXX)
-      const assetId = data.asset_id || data.id;
-      navigate(`/assets/${assetId}/edit`);
+      // Use UUID id from backend response for navigation
+      navigate(`/assets/${data.id}/edit`);
     },
   });
 
