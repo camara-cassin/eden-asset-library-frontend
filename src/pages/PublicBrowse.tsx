@@ -16,7 +16,7 @@ export function PublicBrowse() {
   const [assetTypeFilter, setAssetTypeFilter] = useState<string>('');
 
   // Fetch public assets
-  const { data: assetsData, isLoading } = useQuery({
+  const { data: assetsData, isLoading, error: fetchError } = useQuery({
     queryKey: ['publicAssets', searchQuery, categoryFilter, assetTypeFilter],
     queryFn: () =>
       listPublicAssets({
@@ -89,6 +89,13 @@ export function PublicBrowse() {
       {isLoading ? (
         <div className="flex items-center justify-center py-12">
           <Spinner className="w-8 h-8 text-[#1B4FFF]" />
+        </div>
+      ) : fetchError ? (
+        <div className="flex flex-col items-center justify-center py-12 text-red-600">
+          <p className="font-medium">Failed to load assets</p>
+          <p className="text-sm text-red-500 mt-1">
+            {fetchError instanceof Error ? fetchError.message : 'Unknown error'}
+          </p>
         </div>
       ) : assetsData?.items?.length === 0 ? (
         <div className="text-center py-12 text-[#7A7A7A]">
