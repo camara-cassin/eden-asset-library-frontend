@@ -247,7 +247,7 @@ export function CreateAsset() {
       <div>
         <h1 className="text-2xl font-semibold text-[#1A1A1A]">Add New Asset</h1>
         <p className="text-[#7A7A7A] mt-1">
-          Enter basic information and upload documents. AI will help extract detailed specifications.
+          Enter only the basics and upload any documents or a product URL. AI will help extract the detailed specifications later.
         </p>
       </div>
 
@@ -348,7 +348,7 @@ export function CreateAsset() {
                 className="border-[#D8D8D8] focus:ring-[#1B4FFF]"
               />
               <p className="text-sm text-[#7A7A7A]">
-                AI can extract additional information from this URL
+                AI will use this URL (plus any documents you upload) to pre-fill technical details, specs, and impact fields.
               </p>
             </div>
           </CardContent>
@@ -361,6 +361,9 @@ export function CreateAsset() {
             <CardDescription>
               Upload technical specs, CAD files, manuals, and other documents. AI will extract information from these.
             </CardDescription>
+            <p className="text-sm text-[#7A7A7A] mt-1">
+              You can leave this empty if you don't have files yet. A URL alone is enough to start.
+            </p>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex flex-col sm:flex-row gap-4">
