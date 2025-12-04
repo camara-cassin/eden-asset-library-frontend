@@ -87,4 +87,15 @@ export async function del<T>(url: string, config?: AxiosRequestConfig): Promise<
   return response.data;
 }
 
+export async function postFormData<T>(url: string, formData: FormData, config?: AxiosRequestConfig): Promise<T> {
+  const response = await client.post<T>(url, formData, {
+    ...config,
+    headers: {
+      ...config?.headers,
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+  return response.data;
+}
+
 export default client;

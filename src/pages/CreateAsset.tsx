@@ -1,44 +1,59 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { createAsset } from '../api/assets';
-import { getAssetTypes, getCategories, getSubcategories, getScalingPotentials } from '../api/reference';
+import { createAsset, uploadFiles, aiExtract } from '../api/assets';
+import { getAssetTypes, getCategories } from '../api/reference';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
-import type { AssetType, ScalingPotential } from '../types/asset';
+import type { AssetType } from '../types/asset';
 
 interface ValidationErrors {
   assetType?: string;
   assetName?: string;
   category?: string;
-  shortSummary?: string;
-  contributorName?: string;
-  contributorEmail?: string;
 }
+
+interface UploadedFile {
+  file: File;
+  docType: 'technical_spec' | 'cad_files' | 'engineering_drawings' | 'manuals' | 'images' | 'general';
+}
+
+const DOC_TYPE_LABELS: Record<string, string> = {
+  technical_spec: 'Technical Specifications',
+  cad_files: 'CAD Files',
+  engineering_drawings: 'Engineering Drawings',
+  manuals: 'Manuals & Instructions',
+  images: 'Product Images',
+  general: 'Other Documents',
+};
 
 export function CreateAsset() {
   const navigate = useNavigate();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Form state
+  // Form state - simplified onboarding fields only
   const [assetType, setAssetType] = useState<AssetType>('physical');
   const [assetName, setAssetName] = useState('');
   const [category, setCategory] = useState('');
-  const [subcategory, setSubcategory] = useState('');
   const [shortSummary, setShortSummary] = useState('');
-  const [scalingPotential, setScalingPotential] = useState<ScalingPotential | ''>('');
-  const [contributorName, setContributorName] = useState('');
-  const [contributorEmail, setContributorEmail] = useState('');
-  const [contributorId, setContributorId] = useState('');
-  const [contributorNotes, setContributorNotes] = useState('');
-  const [assetTypeDescription, setAssetTypeDescription] = useState('');
-  const [intendedUseCases, setIntendedUseCases] = useState('');
+  const [companyName, setCompanyName] = useState('');
+  const [websiteUrl, setWebsiteUrl] = useState('');
+  
+  // File upload state
+  const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
+  const [currentDocType, setCurrentDocType] = useState<UploadedFile['docType']>('general');
+  
+  // Validation and UI state
   const [validationErrors, setValidationErrors] = useState<ValidationErrors>({});
   const [touched, setTouched] = useState<Record<string, boolean>>({});
+  const [isUploading, setIsUploading] = useState(false);
+  const [isExtracting, setIsExtracting] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   const validateForm = (): boolean => {
     const errors: ValidationErrors = {};
@@ -51,17 +66,6 @@ export function CreateAsset() {
     }
     if (!category) {
       errors.category = 'Category is required';
-    }
-    if (!shortSummary.trim()) {
-      errors.shortSummary = 'Short summary is required';
-    }
-    if (!contributorName.trim()) {
-      errors.contributorName = 'Contributor name is required';
-    }
-    if (!contributorEmail.trim()) {
-      errors.contributorEmail = 'Contributor email is required';
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contributorEmail)) {
-      errors.contributorEmail = 'Please enter a valid email address';
     }
     
     setValidationErrors(errors);
@@ -83,37 +87,79 @@ export function CreateAsset() {
     queryFn: getCategories,
   });
 
-  const { data: subcategories } = useQuery({
-    queryKey: ['subcategories', category],
-    queryFn: () => getSubcategories(category),
-    enabled: !!category,
-  });
-
-  const { data: scalingPotentials } = useQuery({
-    queryKey: ['scalingPotentials'],
-    queryFn: getScalingPotentials,
-  });
-
   // Create mutation
   const createMutation = useMutation({
     mutationFn: createAsset,
-    onSuccess: (data) => {
-      // Use UUID id from backend response for navigation
-      navigate(`/assets/${data.id}/edit`);
+    onSuccess: async (data) => {
+      const assetId = data.id;
+      
+      // If there are files to upload, upload them
+      if (uploadedFiles.length > 0 && assetId) {
+        setIsUploading(true);
+        try {
+          // Group files by doc type
+          const filesByType = uploadedFiles.reduce((acc, { file, docType }) => {
+            if (!acc[docType]) acc[docType] = [];
+            acc[docType].push(file);
+            return acc;
+          }, {} as Record<string, File[]>);
+          
+          // Upload each group
+          for (const [docType, files] of Object.entries(filesByType)) {
+            await uploadFiles(assetId, files, docType as UploadedFile['docType']);
+          }
+        } catch (error) {
+          console.error('File upload error:', error);
+          setUploadError('Some files failed to upload. You can add them later in the edit page.');
+        } finally {
+          setIsUploading(false);
+        }
+      }
+      
+      // Navigate to edit page
+      navigate(`/assets/${assetId}/edit`);
     },
   });
+
+  // AI Extract mutation
+  const extractMutation = useMutation({
+    mutationFn: async (assetId: string) => {
+      return aiExtract(assetId, {
+        website_url: websiteUrl || undefined,
+        use_uploaded_docs: true,
+      });
+    },
+  });
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+    
+    const newFiles: UploadedFile[] = Array.from(files).map((file) => ({
+      file,
+      docType: currentDocType,
+    }));
+    
+    setUploadedFiles((prev) => [...prev, ...newFiles]);
+    
+    // Reset file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const removeFile = (index: number) => {
+    setUploadedFiles((prev) => prev.filter((_, i) => i !== index));
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Mark all fields as touched
+    // Mark all required fields as touched
     setTouched({
       assetType: true,
       assetName: true,
       category: true,
-      shortSummary: true,
-      contributorName: true,
-      contributorEmail: true,
     });
     
     if (!validateForm()) {
@@ -125,35 +171,110 @@ export function CreateAsset() {
       basic_information: {
         asset_name: assetName,
         category,
-        subcategory: subcategory || undefined,
         short_summary: shortSummary || undefined,
-        scaling_potential: scalingPotential || undefined,
-      },
-      contributor: {
-        name: contributorName || undefined,
-        email: contributorEmail || undefined,
-        contributor_id: contributorId || undefined,
-        notes: contributorNotes || undefined,
-      },
-      overview: {
-        asset_type_description: assetTypeDescription || undefined,
-        intended_use_cases: intendedUseCases ? intendedUseCases.split('\n').filter(Boolean) : undefined,
+        company_name: companyName || undefined,
+        company_website_url: websiteUrl || undefined,
       },
     });
   };
 
+  const handleExtractWithAI = async () => {
+    // First, validate and create the asset
+    setTouched({
+      assetType: true,
+      assetName: true,
+      category: true,
+    });
+    
+    if (!validateForm()) {
+      return;
+    }
+    
+    setIsExtracting(true);
+    
+    try {
+      // Create the asset first
+      const asset = await createMutation.mutateAsync({
+        asset_type: assetType,
+        basic_information: {
+          asset_name: assetName,
+          category,
+          short_summary: shortSummary || undefined,
+          company_name: companyName || undefined,
+          company_website_url: websiteUrl || undefined,
+        },
+      });
+      
+      const assetId = asset.id;
+      if (!assetId) {
+        throw new Error('Asset ID not returned');
+      }
+      
+      // Upload files if any
+      if (uploadedFiles.length > 0) {
+        setIsUploading(true);
+        const filesByType = uploadedFiles.reduce((acc, { file, docType }) => {
+          if (!acc[docType]) acc[docType] = [];
+          acc[docType].push(file);
+          return acc;
+        }, {} as Record<string, File[]>);
+        
+        for (const [docType, files] of Object.entries(filesByType)) {
+          await uploadFiles(assetId, files, docType as UploadedFile['docType']);
+        }
+        setIsUploading(false);
+      }
+      
+      // Trigger AI extraction
+      await extractMutation.mutateAsync(assetId);
+      
+      // Navigate to edit page
+      navigate(`/assets/${assetId}/edit`);
+    } catch (error) {
+      console.error('Extract with AI error:', error);
+      setIsExtracting(false);
+    }
+  };
+
+  const formatAssetType = (type: string) => {
+    return type.charAt(0).toUpperCase() + type.slice(1);
+  };
+
+  const isProcessing = createMutation.isPending || isUploading || isExtracting;
+
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-semibold text-[#1A1A1A]">Create New Asset</h1>
+    <div className="space-y-6 max-w-3xl mx-auto">
+      <div>
+        <h1 className="text-2xl font-semibold text-[#1A1A1A]">Add New Asset</h1>
+        <p className="text-[#7A7A7A] mt-1">
+          Enter basic information and upload documents. AI will help extract detailed specifications.
+        </p>
+      </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Basic Information */}
         <Card className="bg-white rounded-xl shadow-sm">
           <CardHeader>
             <CardTitle className="text-xl text-[#1A1A1A]">Basic Information</CardTitle>
+            <CardDescription>Required fields to create your asset</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="assetName" className="text-[#1A1A1A]">Asset Name *</Label>
+                <Input
+                  id="assetName"
+                  value={assetName}
+                  onChange={(e) => setAssetName(e.target.value)}
+                  onBlur={() => handleBlur('assetName')}
+                  placeholder="e.g., Solar Roof Tile X100"
+                  className={`border-[#D8D8D8] focus:ring-[#1B4FFF] ${touched.assetName && validationErrors.assetName ? 'border-red-500' : ''}`}
+                />
+                {touched.assetName && validationErrors.assetName && (
+                  <p className="text-sm text-red-500">{validationErrors.assetName}</p>
+                )}
+              </div>
+
               <div className="space-y-2">
                 <Label htmlFor="assetType" className="text-[#1A1A1A]">Asset Type *</Label>
                 <Select value={assetType} onValueChange={(v) => setAssetType(v as AssetType)}>
@@ -163,28 +284,13 @@ export function CreateAsset() {
                   <SelectContent>
                     {assetTypes?.map((type) => (
                       <SelectItem key={type} value={type}>
-                        {type}
+                        {formatAssetType(type)}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
                 {touched.assetType && validationErrors.assetType && (
                   <p className="text-sm text-red-500">{validationErrors.assetType}</p>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="assetName" className="text-[#1A1A1A]">Asset Name *</Label>
-                <Input
-                  id="assetName"
-                  value={assetName}
-                  onChange={(e) => setAssetName(e.target.value)}
-                  onBlur={() => handleBlur('assetName')}
-                  placeholder="Enter asset name"
-                  className={`border-[#D8D8D8] focus:ring-[#1B4FFF] ${touched.assetName && validationErrors.assetName ? 'border-red-500' : ''}`}
-                />
-                {touched.assetName && validationErrors.assetName && (
-                  <p className="text-sm text-red-500">{validationErrors.assetName}</p>
                 )}
               </div>
 
@@ -208,176 +314,158 @@ export function CreateAsset() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="subcategory" className="text-[#1A1A1A]">Subcategory</Label>
-                <Select value={subcategory} onValueChange={setSubcategory} disabled={!category}>
-                  <SelectTrigger className="border-[#D8D8D8]">
-                    <SelectValue placeholder="Select subcategory" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {subcategories?.map((sub) => (
-                      <SelectItem key={sub} value={sub}>
-                        {sub}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="scalingPotential" className="text-[#1A1A1A]">Scaling Potential</Label>
-                <Select value={scalingPotential} onValueChange={(v) => setScalingPotential(v as ScalingPotential)}>
-                  <SelectTrigger className="border-[#D8D8D8]">
-                    <SelectValue placeholder="Select scaling potential" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {scalingPotentials?.map((sp) => (
-                      <SelectItem key={sp} value={sp}>
-                        {sp}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="shortSummary" className="text-[#1A1A1A]">Short Summary *</Label>
-              <Textarea
-                id="shortSummary"
-                value={shortSummary}
-                onChange={(e) => setShortSummary(e.target.value)}
-                onBlur={() => handleBlur('shortSummary')}
-                placeholder="Brief description of the asset"
-                rows={3}
-                className={`border-[#D8D8D8] focus:ring-[#1B4FFF] ${touched.shortSummary && validationErrors.shortSummary ? 'border-red-500' : ''}`}
-              />
-              {touched.shortSummary && validationErrors.shortSummary && (
-                <p className="text-sm text-red-500">{validationErrors.shortSummary}</p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Contributor */}
-        <Card className="bg-white rounded-xl shadow-sm">
-          <CardHeader>
-            <CardTitle className="text-xl text-[#1A1A1A]">Contributor</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="contributorName" className="text-[#1A1A1A]">Name *</Label>
+                <Label htmlFor="companyName" className="text-[#1A1A1A]">Supplier Company Name</Label>
                 <Input
-                  id="contributorName"
-                  value={contributorName}
-                  onChange={(e) => setContributorName(e.target.value)}
-                  onBlur={() => handleBlur('contributorName')}
-                  placeholder="Contributor name"
-                  className={`border-[#D8D8D8] focus:ring-[#1B4FFF] ${touched.contributorName && validationErrors.contributorName ? 'border-red-500' : ''}`}
-                />
-                {touched.contributorName && validationErrors.contributorName && (
-                  <p className="text-sm text-red-500">{validationErrors.contributorName}</p>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="contributorEmail" className="text-[#1A1A1A]">Email *</Label>
-                <Input
-                  id="contributorEmail"
-                  type="email"
-                  value={contributorEmail}
-                  onChange={(e) => setContributorEmail(e.target.value)}
-                  onBlur={() => handleBlur('contributorEmail')}
-                  placeholder="contributor@example.com"
-                  className={`border-[#D8D8D8] focus:ring-[#1B4FFF] ${touched.contributorEmail && validationErrors.contributorEmail ? 'border-red-500' : ''}`}
-                />
-                {touched.contributorEmail && validationErrors.contributorEmail && (
-                  <p className="text-sm text-red-500">{validationErrors.contributorEmail}</p>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="contributorId" className="text-[#1A1A1A]">Contributor ID</Label>
-                <Input
-                  id="contributorId"
-                  value={contributorId}
-                  onChange={(e) => setContributorId(e.target.value)}
-                  placeholder="user_123"
+                  id="companyName"
+                  value={companyName}
+                  onChange={(e) => setCompanyName(e.target.value)}
+                  placeholder="e.g., SolarTech Inc."
                   className="border-[#D8D8D8] focus:ring-[#1B4FFF]"
                 />
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="contributorNotes" className="text-[#1A1A1A]">Notes</Label>
+              <Label htmlFor="shortSummary" className="text-[#1A1A1A]">Short Summary</Label>
               <Textarea
-                id="contributorNotes"
-                value={contributorNotes}
-                onChange={(e) => setContributorNotes(e.target.value)}
-                placeholder="Additional notes"
-                rows={2}
-                className="border-[#D8D8D8] focus:ring-[#1B4FFF]"
-              />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Overview */}
-        <Card className="bg-white rounded-xl shadow-sm">
-          <CardHeader>
-            <CardTitle className="text-xl text-[#1A1A1A]">Overview</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="assetTypeDescription" className="text-[#1A1A1A]">Asset Type Description</Label>
-              <Textarea
-                id="assetTypeDescription"
-                value={assetTypeDescription}
-                onChange={(e) => setAssetTypeDescription(e.target.value)}
-                placeholder="Describe the type of asset"
+                id="shortSummary"
+                value={shortSummary}
+                onChange={(e) => setShortSummary(e.target.value)}
+                placeholder="Brief description of the asset and its purpose"
                 rows={3}
                 className="border-[#D8D8D8] focus:ring-[#1B4FFF]"
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="intendedUseCases" className="text-[#1A1A1A]">Intended Use Cases</Label>
-              <Textarea
-                id="intendedUseCases"
-                value={intendedUseCases}
-                onChange={(e) => setIntendedUseCases(e.target.value)}
-                placeholder="Enter each use case on a new line"
-                rows={4}
+              <Label htmlFor="websiteUrl" className="text-[#1A1A1A]">Website / Product URL</Label>
+              <Input
+                id="websiteUrl"
+                type="url"
+                value={websiteUrl}
+                onChange={(e) => setWebsiteUrl(e.target.value)}
+                placeholder="https://example.com/product"
                 className="border-[#D8D8D8] focus:ring-[#1B4FFF]"
               />
-              <p className="text-sm text-[#7A7A7A]">Enter each use case on a separate line</p>
+              <p className="text-sm text-[#7A7A7A]">
+                AI can extract additional information from this URL
+              </p>
             </div>
           </CardContent>
         </Card>
 
+        {/* Document Uploads */}
+        <Card className="bg-white rounded-xl shadow-sm">
+          <CardHeader>
+            <CardTitle className="text-xl text-[#1A1A1A]">Documentation</CardTitle>
+            <CardDescription>
+              Upload technical specs, CAD files, manuals, and other documents. AI will extract information from these.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex flex-col sm:flex-row gap-4">
+              <div className="flex-1 space-y-2">
+                <Label htmlFor="docType" className="text-[#1A1A1A]">Document Type</Label>
+                <Select value={currentDocType} onValueChange={(v) => setCurrentDocType(v as UploadedFile['docType'])}>
+                  <SelectTrigger className="border-[#D8D8D8]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(DOC_TYPE_LABELS).map(([value, label]) => (
+                      <SelectItem key={value} value={value}>
+                        {label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex items-end">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="border-[#1B4FFF] text-[#1B4FFF]"
+                >
+                  Select Files
+                </Button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  onChange={handleFileSelect}
+                  className="hidden"
+                  accept=".pdf,.doc,.docx,.dwg,.dxf,.step,.stp,.iges,.igs,.stl,.obj,.jpg,.jpeg,.png,.gif,.webp"
+                />
+              </div>
+            </div>
+
+            {uploadedFiles.length > 0 && (
+              <div className="space-y-2">
+                <Label className="text-[#1A1A1A]">Selected Files ({uploadedFiles.length})</Label>
+                <div className="border border-[#D8D8D8] rounded-lg divide-y divide-[#D8D8D8]">
+                  {uploadedFiles.map((item, index) => (
+                    <div key={index} className="flex items-center justify-between p-3">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-[#1A1A1A] truncate">
+                          {item.file.name}
+                        </p>
+                        <p className="text-xs text-[#7A7A7A]">
+                          {DOC_TYPE_LABELS[item.docType]} - {(item.file.size / 1024 / 1024).toFixed(2)} MB
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeFile(index)}
+                        className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                      >
+                        Remove
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {uploadedFiles.length === 0 && (
+              <div className="border-2 border-dashed border-[#D8D8D8] rounded-lg p-8 text-center">
+                <p className="text-[#7A7A7A]">
+                  No files selected. Upload technical specs, CAD files, manuals, or images.
+                </p>
+                <p className="text-sm text-[#7A7A7A] mt-1">
+                  Supported: PDF, DOC, DWG, DXF, STEP, STL, JPG, PNG
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
         {/* Error display */}
-        {createMutation.isError && (
+        {(createMutation.isError || uploadError) && (
           <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">
-            {createMutation.error instanceof Error ? createMutation.error.message : 'An error occurred'}
+            {createMutation.error instanceof Error ? createMutation.error.message : uploadError || 'An error occurred'}
           </div>
         )}
 
         {/* Actions */}
-        <div className="flex justify-end space-x-4">
+        <div className="flex flex-col sm:flex-row justify-end gap-4">
           <Button
             type="button"
             variant="outline"
             onClick={() => navigate('/')}
-            className="border-[#1B4FFF] text-[#1B4FFF]"
+            className="border-[#D8D8D8] text-[#7A7A7A]"
+            disabled={isProcessing}
           >
             Cancel
           </Button>
           <Button
             type="submit"
-            disabled={createMutation.isPending}
-            className="bg-[#1B4FFF] hover:bg-[#0F2C8C] text-white"
+            disabled={isProcessing}
+            variant="outline"
+            className="border-[#1B4FFF] text-[#1B4FFF]"
           >
-            {createMutation.isPending ? (
+            {createMutation.isPending && !isExtracting ? (
               <>
                 <Spinner className="w-4 h-4 mr-2" />
                 Saving...
@@ -386,7 +474,27 @@ export function CreateAsset() {
               'Save Draft'
             )}
           </Button>
+          <Button
+            type="button"
+            onClick={handleExtractWithAI}
+            disabled={isProcessing}
+            className="bg-[#1B4FFF] hover:bg-[#0F2C8C] text-white"
+          >
+            {isExtracting ? (
+              <>
+                <Spinner className="w-4 h-4 mr-2" />
+                {isUploading ? 'Uploading...' : 'Extracting...'}
+              </>
+            ) : (
+              'Extract with AI'
+            )}
+          </Button>
         </div>
+
+        <p className="text-sm text-[#7A7A7A] text-center">
+          "Extract with AI" will create the asset, upload your files, and use AI to pre-fill detailed specifications.
+          You can review and edit all fields on the next page.
+        </p>
       </form>
     </div>
   );

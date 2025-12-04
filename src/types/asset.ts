@@ -153,25 +153,31 @@ export interface PlanConfiguration {
   repair_time_hours?: number;
 }
 
+export type TimePeriod = 'instant' | 'per_minute' | 'per_hour' | 'per_day' | 'per_week' | 'per_month' | 'per_year' | 'one_time';
+
 export interface FunctionalIOInput {
   input_type?: string;
   quantity?: number;
+  unit?: string;
+  time_period?: TimePeriod;
   time_profile?: string;
   quality_spec?: string;
+  estimated_financial_value_usd?: number;
   name?: string;
   type?: string;
-  unit?: string;
   description?: string;
 }
 
 export interface FunctionalIOOutput {
   output_type?: string;
   quantity?: number;
+  unit?: string;
+  time_period?: TimePeriod;
   variability_profile?: string;
   quality_spec?: string;
+  estimated_financial_value_usd?: number;
   name?: string;
   type?: string;
-  unit?: string;
   description?: string;
 }
 
@@ -291,6 +297,8 @@ export interface AssetCreatePayload {
     short_summary?: string;
     subcategory?: string;
     scaling_potential?: ScalingPotential;
+    company_name?: string;
+    company_website_url?: string;
   };
   contributor?: {
     name?: string;
@@ -320,11 +328,26 @@ export interface FileAttachPayload {
 }
 
 export interface AIExtractPayload {
-  sources: {
+  sources?: {
     use_uploaded_docs?: boolean;
     extra_doc_urls?: string[];
     extra_web_urls?: string[];
   };
+  website_url?: string;
+  use_uploaded_docs?: boolean;
+}
+
+export interface FileUploadResponse {
+  url: string;
+  filename: string;
+  doc_type: string;
+  field: string;
+}
+
+export interface UploadFilesResponse {
+  uploaded: FileUploadResponse[];
+  errors: string[] | null;
+  asset: EdenAsset;
 }
 
 export interface ApprovePayload {
