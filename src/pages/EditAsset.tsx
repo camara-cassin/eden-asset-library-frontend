@@ -15,7 +15,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ChevronDown } from 'lucide-react';
-import type { EdenAsset, TimePeriod } from '../types/asset';
+import type { EdenAsset, TimePeriod, AIExtractionResponse } from '../types/asset';
 
 const FILE_TARGETS = [
   { value: 'cad_file_urls', label: 'CAD Files' },
@@ -109,6 +109,9 @@ export function EditAsset() {
   const [showSavedMessage, setShowSavedMessage] = useState(false);
   const [aiMessage, setAiMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [fileMessage, setFileMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  
+  // AI extraction response state
+  const [aiExtractionResult, setAiExtractionResult] = useState<AIExtractionResponse | null>(null);
 
   // Collapsible section states (collapsed by default for advanced sections)
   const [economicsOpen, setEconomicsOpen] = useState(false);
@@ -192,11 +195,12 @@ export function EditAsset() {
           extra_doc_urls: extraDocUrls ? extraDocUrls.split('\n').filter(Boolean) : undefined,
         },
       }),
-    onSuccess: () => {
+    onSuccess: (data) => {
       setShowAIModal(false);
       setExtraDocUrls('');
+      setAiExtractionResult(data);
       setAiMessage({ type: 'success', text: 'AI prefill completed successfully' });
-      setTimeout(() => setAiMessage(null), 3000);
+      setTimeout(() => setAiMessage(null), 5000);
       queryClient.invalidateQueries({ queryKey: ['asset', id] });
     },
     onError: (error) => {
@@ -321,6 +325,110 @@ export function EditAsset() {
         <div className={`rounded-lg p-4 ${fileMessage.type === 'success' ? 'bg-green-50 border border-green-200 text-green-700' : 'bg-red-50 border border-red-200 text-red-700'}`}>
           {fileMessage.text}
         </div>
+      )}
+
+      {/* AI Prefill Summary Panel */}
+      {(aiExtractionResult || formData.ai_assistance?.prefill_status === 'complete') && (
+        <Card className="bg-blue-50 border-blue-200 rounded-xl shadow-sm">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg text-blue-800 flex items-center gap-2">
+              <span className="inline-block w-2 h-2 bg-blue-500 rounded-full"></span>
+              AI Prefill Summary
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {/* Prefill Status */}
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-blue-700">Status:</span>
+              <Badge className={
+                formData.ai_assistance?.prefill_status === 'complete' 
+                  ? 'bg-green-100 text-green-700 border-green-300'
+                  : formData.ai_assistance?.prefill_status === 'failed'
+                  ? 'bg-red-100 text-red-700 border-red-300'
+                  : 'bg-yellow-100 text-yellow-700 border-yellow-300'
+              }>
+                {formData.ai_assistance?.prefill_status || 'not_run'}
+              </Badge>
+              {formData.ai_assistance?.last_run_at && (
+                <span className="text-xs text-blue-600">
+                  Last run: {new Date(formData.ai_assistance.last_run_at).toLocaleString()}
+                </span>
+              )}
+            </div>
+
+            {/* Fields Prefilled */}
+            {(aiExtractionResult?.fields_prefilled?.length || formData.ai_assistance?.fields_prefilled?.length) ? (
+              <div>
+                <span className="text-sm font-medium text-blue-700">Fields Prefilled:</span>
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {(aiExtractionResult?.fields_prefilled || formData.ai_assistance?.fields_prefilled || []).map((field, idx) => (
+                    <Badge key={idx} variant="outline" className="text-xs bg-white border-blue-300 text-blue-600">
+                      {field}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            {/* Sources Used */}
+            {(aiExtractionResult?.sources_used?.length || formData.ai_assistance?.sources_used?.length) ? (
+              <div>
+                <span className="text-sm font-medium text-blue-700">Sources Used:</span>
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {aiExtractionResult?.sources_used ? (
+                    aiExtractionResult.sources_used.map((source, idx) => (
+                      <Badge key={idx} variant="outline" className="text-xs bg-white border-blue-300 text-blue-600">
+                        {source.startsWith('http') ? (
+                          <a href={source} target="_blank" rel="noopener noreferrer" className="hover:underline">
+                            {source.length > 40 ? source.substring(0, 40) + '...' : source}
+                          </a>
+                        ) : (
+                          source.length > 40 ? source.substring(0, 40) + '...' : source
+                        )}
+                      </Badge>
+                    ))
+                  ) : (
+                    formData.ai_assistance?.sources_used?.map((source, idx) => (
+                      <Badge key={idx} variant="outline" className="text-xs bg-white border-blue-300 text-blue-600">
+                        {source.source_ref && source.source_ref.startsWith('http') ? (
+                          <a href={source.source_ref} target="_blank" rel="noopener noreferrer" className="hover:underline">
+                            {source.source_ref.length > 40 ? source.source_ref.substring(0, 40) + '...' : source.source_ref}
+                          </a>
+                        ) : (
+                          source.source_ref ? (source.source_ref.length > 40 ? source.source_ref.substring(0, 40) + '...' : source.source_ref) : 'Unknown source'
+                        )}
+                      </Badge>
+                    ))
+                  )}
+                </div>
+              </div>
+            ) : null}
+
+            {/* Notes for Reviewer */}
+            {aiExtractionResult?.notes_for_reviewer?.length ? (
+              <div>
+                <span className="text-sm font-medium text-blue-700">Notes for Reviewer:</span>
+                <ul className="list-disc list-inside mt-1 text-sm text-blue-600">
+                  {aiExtractionResult.notes_for_reviewer.map((note, idx) => (
+                    <li key={idx}>{note}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+
+            {/* Dismiss button */}
+            <div className="pt-2">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setAiExtractionResult(null)}
+                className="text-blue-600 border-blue-300 hover:bg-blue-100"
+              >
+                Dismiss Summary
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {/* Basic Information */}

@@ -7,6 +7,7 @@ import type {
   AssetUpdatePayload,
   FileAttachPayload,
   AIExtractPayload,
+  AIExtractionResponse,
   ApprovePayload,
   RejectPayload,
   AssetListParams,
@@ -49,8 +50,8 @@ export async function attachFile(id: string, payload: FileAttachPayload): Promis
   return post<EdenAsset>(`/assets/${id}/files`, payload);
 }
 
-export async function aiExtract(id: string, payload: AIExtractPayload): Promise<EdenAsset> {
-  return post<EdenAsset>(`/assets/${id}/ai-extract`, payload);
+export async function aiExtract(id: string, payload: AIExtractPayload): Promise<AIExtractionResponse> {
+  return post<AIExtractionResponse>(`/assets/${id}/ai-extract`, payload);
 }
 
 export type DocType = 'technical_spec' | 'cad_files' | 'engineering_drawings' | 'manuals' | 'images' | 'general';

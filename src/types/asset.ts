@@ -337,6 +337,20 @@ export interface AIExtractPayload {
   use_uploaded_docs?: boolean;
 }
 
+export interface AIFieldUpdate {
+  path: string;
+  value: unknown;
+  confidence: number;
+  source: string;
+}
+
+export interface AIExtractionResponse {
+  field_updates: AIFieldUpdate[];
+  fields_prefilled: string[];
+  sources_used: string[];
+  notes_for_reviewer: string[];
+}
+
 export interface FileUploadResponse {
   url: string;
   filename: string;
