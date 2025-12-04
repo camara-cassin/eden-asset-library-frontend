@@ -1,0 +1,25 @@
+{
+  "asset_id": "ASSET_test_001",
+  "asset_type": "physical",
+  "system_meta": {
+    "status": "draft",
+    "version": "v1"
+  },
+  "basic_information": {
+    "asset_name": "Solar Panel X100",
+    "category": "Energy",
+    "short_summary": "High-efficiency solar panel for residential use"
+  },
+  "contributor": {
+    "name": "Test Contributor",
+    "email": "test@example.com",
+    "submission_status": "draft"
+  },
+  "economics": {
+    "retail_price": 500,
+    "currency": "USD"
+  },
+  "deployment": {
+    "climate_zones": ["temperate", "tropical"]
+  }
+}
