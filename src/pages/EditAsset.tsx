@@ -74,15 +74,27 @@ const UNIT_OPTIONS = [
 
 // Time period options for functional_io inputs/outputs
 const TIME_PERIOD_OPTIONS = [
-  { value: 'instant', label: 'Instant (one-time measurement)' },
-  { value: 'per_minute', label: 'Per minute' },
-  { value: 'per_hour', label: 'Per hour' },
   { value: 'per_day', label: 'Per day' },
   { value: 'per_week', label: 'Per week' },
   { value: 'per_month', label: 'Per month' },
   { value: 'per_year', label: 'Per year' },
-  { value: 'one_time', label: 'One-time (total)' },
 ];
+
+// Multipliers to convert time periods to yearly values
+const YEARLY_MULTIPLIERS: Record<string, number> = {
+  per_day: 365,
+  per_week: 52,
+  per_month: 12,
+  per_year: 1,
+};
+
+// Helper function to calculate yearly value
+const calculateYearlyValue = (value: number | undefined, timePeriod: string | undefined): number | null => {
+  if (value === undefined || value === null || !timePeriod) return null;
+  const multiplier = YEARLY_MULTIPLIERS[timePeriod];
+  if (!multiplier) return null;
+  return value * multiplier;
+};
 
 export function EditAsset() {
   const { id } = useParams<{ id: string }>();
@@ -799,6 +811,385 @@ export function EditAsset() {
         </CardContent>
       </Card>
 
+      {/* Functional Inputs & Outputs */}
+      <Card className="bg-white rounded-xl shadow-sm">
+        <CardHeader>
+          <CardTitle className="text-xl text-[#1A1A1A]">Functional Inputs & Outputs</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Inputs */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="font-medium text-[#1A1A1A]">Inputs</h3>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const inputs = formData.functional_io?.inputs || [];
+                  updateFormField('functional_io.inputs', [...inputs, { 
+                    input_type: '', 
+                    quantity: undefined, 
+                    unit: '', 
+                    time_period: '', 
+                    quality_spec: '',
+                    estimated_financial_value_usd: undefined
+                  }]);
+                }}
+                className="border-[#1B4FFF] text-[#1B4FFF]"
+              >
+                Add Input
+              </Button>
+            </div>
+            <p className="text-sm text-[#7A7A7A] mb-3">
+              List all resources required for this asset to operate. Examples: electricity, biomass, food waste, water, labour, maintenance costs, replacement parts, consumables, etc.
+            </p>
+            {formData.functional_io?.inputs && formData.functional_io.inputs.length > 0 ? (
+              <div className="space-y-4">
+                {formData.functional_io.inputs.map((input, index) => {
+                  const costPerYear = calculateYearlyValue(input.estimated_financial_value_usd, input.time_period);
+                  return (
+                    <div key={index} className="border border-[#D8D8D8] rounded-lg p-4 space-y-3">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm font-medium text-[#7A7A7A]">Input #{index + 1}</span>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            const inputs = formData.functional_io?.inputs?.filter((_, i) => i !== index) || [];
+                            updateFormField('functional_io.inputs', inputs);
+                          }}
+                          className="text-red-500 hover:text-red-700 hover:bg-red-50 h-8"
+                        >
+                          Remove
+                        </Button>
+                      </div>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <div className="space-y-1">
+                          <Label className="text-xs text-[#7A7A7A]">Input Type</Label>
+                          <Input
+                            value={input.input_type || ''}
+                            onChange={(e) => {
+                              const inputs = [...(formData.functional_io?.inputs || [])];
+                              inputs[index] = { ...inputs[index], input_type: e.target.value };
+                              updateFormField('functional_io.inputs', inputs);
+                            }}
+                            className="border-[#D8D8D8]"
+                            placeholder="e.g., Electricity, Water"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs text-[#7A7A7A]">Quantity</Label>
+                          <Input
+                            type="number"
+                            value={input.quantity ?? ''}
+                            onChange={(e) => {
+                              const inputs = [...(formData.functional_io?.inputs || [])];
+                              inputs[index] = { ...inputs[index], quantity: e.target.value ? Number(e.target.value) : undefined };
+                              updateFormField('functional_io.inputs', inputs);
+                            }}
+                            className="border-[#D8D8D8]"
+                            placeholder="0"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs text-[#7A7A7A]">Unit</Label>
+                          <Select
+                            value={input.unit || ''}
+                            onValueChange={(v) => {
+                              const inputs = [...(formData.functional_io?.inputs || [])];
+                              inputs[index] = { ...inputs[index], unit: v };
+                              updateFormField('functional_io.inputs', inputs);
+                            }}
+                          >
+                            <SelectTrigger className="border-[#D8D8D8]">
+                              <SelectValue placeholder="Select unit" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {UNIT_OPTIONS.map((opt) => (
+                                <SelectItem key={opt.value} value={opt.value}>
+                                  {opt.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs text-[#7A7A7A]">Time Period</Label>
+                          <Select
+                            value={input.time_period || ''}
+                            onValueChange={(v) => {
+                              const inputs = [...(formData.functional_io?.inputs || [])];
+                              inputs[index] = { ...inputs[index], time_period: v as TimePeriod };
+                              updateFormField('functional_io.inputs', inputs);
+                            }}
+                          >
+                            <SelectTrigger className="border-[#D8D8D8]">
+                              <SelectValue placeholder="Select period" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {TIME_PERIOD_OPTIONS.map((opt) => (
+                                <SelectItem key={opt.value} value={opt.value}>
+                                  {opt.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                        <div className="space-y-1">
+                          <Label className="text-xs text-[#7A7A7A]">Estimated Cost (USD)</Label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={input.estimated_financial_value_usd ?? ''}
+                            onChange={(e) => {
+                              const inputs = [...(formData.functional_io?.inputs || [])];
+                              inputs[index] = { ...inputs[index], estimated_financial_value_usd: e.target.value ? Number(e.target.value) : undefined };
+                              updateFormField('functional_io.inputs', inputs);
+                            }}
+                            className="border-[#D8D8D8]"
+                            placeholder="0.00"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs text-[#7A7A7A]">Cost per Year (USD)</Label>
+                          <Input
+                            type="text"
+                            value={costPerYear !== null ? `$${costPerYear.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'}
+                            readOnly
+                            disabled
+                            className="border-[#D8D8D8] bg-gray-50"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs text-[#7A7A7A]">Quality Spec</Label>
+                          <Input
+                            value={input.quality_spec || ''}
+                            onChange={(e) => {
+                              const inputs = [...(formData.functional_io?.inputs || [])];
+                              inputs[index] = { ...inputs[index], quality_spec: e.target.value };
+                              updateFormField('functional_io.inputs', inputs);
+                            }}
+                            className="border-[#D8D8D8]"
+                            placeholder="e.g., 120V AC"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+                {/* Total Input Cost per Year */}
+                <div className="flex justify-end items-center pt-2 border-t border-[#D8D8D8]">
+                  <span className="text-sm font-medium text-[#1A1A1A] mr-3">Total Input Cost per Year:</span>
+                  <span className="text-lg font-semibold text-[#1B4FFF]">
+                    ${(formData.functional_io?.inputs || []).reduce((sum, input) => {
+                      const yearly = calculateYearlyValue(input.estimated_financial_value_usd, input.time_period);
+                      return sum + (yearly || 0);
+                    }, 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <p className="text-[#7A7A7A] text-sm">No inputs defined. Click "Add Input" to add one.</p>
+            )}
+          </div>
+
+          {/* Outputs */}
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-medium text-[#1A1A1A]">Outputs</h3>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const outputs = formData.functional_io?.outputs || [];
+                  updateFormField('functional_io.outputs', [...outputs, { 
+                    output_type: '', 
+                    quantity: undefined, 
+                    unit: '', 
+                    time_period: '', 
+                    variability_profile: '', 
+                    quality_spec: '',
+                    estimated_financial_value_usd: undefined
+                  }]);
+                }}
+                className="border-[#1B4FFF] text-[#1B4FFF]"
+              >
+                Add Output
+              </Button>
+            </div>
+            {formData.functional_io?.outputs && formData.functional_io.outputs.length > 0 ? (
+              <div className="space-y-4">
+                {formData.functional_io.outputs.map((output, index) => {
+                  const valuePerYear = calculateYearlyValue(output.estimated_financial_value_usd, output.time_period);
+                  return (
+                    <div key={index} className="border border-[#D8D8D8] rounded-lg p-4 space-y-3">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm font-medium text-[#7A7A7A]">Output #{index + 1}</span>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            const outputs = formData.functional_io?.outputs?.filter((_, i) => i !== index) || [];
+                            updateFormField('functional_io.outputs', outputs);
+                          }}
+                          className="text-red-500 hover:text-red-700 hover:bg-red-50 h-8"
+                        >
+                          Remove
+                        </Button>
+                      </div>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <div className="space-y-1">
+                          <Label className="text-xs text-[#7A7A7A]">Output Type</Label>
+                          <Input
+                            value={output.output_type || ''}
+                            onChange={(e) => {
+                              const outputs = [...(formData.functional_io?.outputs || [])];
+                              outputs[index] = { ...outputs[index], output_type: e.target.value };
+                              updateFormField('functional_io.outputs', outputs);
+                            }}
+                            className="border-[#D8D8D8]"
+                            placeholder="e.g., Electricity, Heat"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs text-[#7A7A7A]">Quantity</Label>
+                          <Input
+                            type="number"
+                            value={output.quantity ?? ''}
+                            onChange={(e) => {
+                              const outputs = [...(formData.functional_io?.outputs || [])];
+                              outputs[index] = { ...outputs[index], quantity: e.target.value ? Number(e.target.value) : undefined };
+                              updateFormField('functional_io.outputs', outputs);
+                            }}
+                            className="border-[#D8D8D8]"
+                            placeholder="0"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs text-[#7A7A7A]">Unit</Label>
+                          <Select
+                            value={output.unit || ''}
+                            onValueChange={(v) => {
+                              const outputs = [...(formData.functional_io?.outputs || [])];
+                              outputs[index] = { ...outputs[index], unit: v };
+                              updateFormField('functional_io.outputs', outputs);
+                            }}
+                          >
+                            <SelectTrigger className="border-[#D8D8D8]">
+                              <SelectValue placeholder="Select unit" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {UNIT_OPTIONS.map((opt) => (
+                                <SelectItem key={opt.value} value={opt.value}>
+                                  {opt.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs text-[#7A7A7A]">Time Period</Label>
+                          <Select
+                            value={output.time_period || ''}
+                            onValueChange={(v) => {
+                              const outputs = [...(formData.functional_io?.outputs || [])];
+                              outputs[index] = { ...outputs[index], time_period: v as TimePeriod };
+                              updateFormField('functional_io.outputs', outputs);
+                            }}
+                          >
+                            <SelectTrigger className="border-[#D8D8D8]">
+                              <SelectValue placeholder="Select period" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {TIME_PERIOD_OPTIONS.map((opt) => (
+                                <SelectItem key={opt.value} value={opt.value}>
+                                  {opt.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <div className="space-y-1">
+                          <Label className="text-xs text-[#7A7A7A]">Estimated Value (USD)</Label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={output.estimated_financial_value_usd ?? ''}
+                            onChange={(e) => {
+                              const outputs = [...(formData.functional_io?.outputs || [])];
+                              outputs[index] = { ...outputs[index], estimated_financial_value_usd: e.target.value ? Number(e.target.value) : undefined };
+                              updateFormField('functional_io.outputs', outputs);
+                            }}
+                            className="border-[#D8D8D8]"
+                            placeholder="0.00"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs text-[#7A7A7A]">Value per Year (USD)</Label>
+                          <Input
+                            type="text"
+                            value={valuePerYear !== null ? `$${valuePerYear.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'}
+                            readOnly
+                            disabled
+                            className="border-[#D8D8D8] bg-gray-50"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs text-[#7A7A7A]">Variability Profile</Label>
+                          <Input
+                            value={output.variability_profile || ''}
+                            onChange={(e) => {
+                              const outputs = [...(formData.functional_io?.outputs || [])];
+                              outputs[index] = { ...outputs[index], variability_profile: e.target.value };
+                              updateFormField('functional_io.outputs', outputs);
+                            }}
+                            className="border-[#D8D8D8]"
+                            placeholder="e.g., Seasonal"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs text-[#7A7A7A]">Quality Spec</Label>
+                          <Input
+                            value={output.quality_spec || ''}
+                            onChange={(e) => {
+                              const outputs = [...(formData.functional_io?.outputs || [])];
+                              outputs[index] = { ...outputs[index], quality_spec: e.target.value };
+                              updateFormField('functional_io.outputs', outputs);
+                            }}
+                            className="border-[#D8D8D8]"
+                            placeholder="e.g., Grade A"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+                {/* Total Output Value per Year */}
+                <div className="flex justify-end items-center pt-2 border-t border-[#D8D8D8]">
+                  <span className="text-sm font-medium text-[#1A1A1A] mr-3">Total Output Value per Year:</span>
+                  <span className="text-lg font-semibold text-green-600">
+                    ${(formData.functional_io?.outputs || []).reduce((sum, output) => {
+                      const yearly = calculateYearlyValue(output.estimated_financial_value_usd, output.time_period);
+                      return sum + (yearly || 0);
+                    }, 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <p className="text-[#7A7A7A] text-sm">No outputs defined. Click "Add Output" to add one.</p>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Economics */}
       <Collapsible open={economicsOpen} onOpenChange={setEconomicsOpen}>
         <Card className="bg-white rounded-xl shadow-sm">
@@ -1134,350 +1525,6 @@ export function EditAsset() {
           </CollapsibleContent>
         </Card>
       </Collapsible>
-
-      {/* Functional Inputs & Outputs */}
-      <Card className="bg-white rounded-xl shadow-sm">
-        <CardHeader>
-          <CardTitle className="text-xl text-[#1A1A1A]">Functional Inputs & Outputs</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {/* Inputs */}
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="font-medium text-[#1A1A1A]">Inputs</h3>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  const inputs = formData.functional_io?.inputs || [];
-                  updateFormField('functional_io.inputs', [...inputs, { 
-                    input_type: '', 
-                    quantity: undefined, 
-                    unit: '', 
-                    time_period: '', 
-                    time_profile: '', 
-                    quality_spec: '',
-                    estimated_financial_value_usd: undefined
-                  }]);
-                }}
-                className="border-[#1B4FFF] text-[#1B4FFF]"
-              >
-                Add Input
-              </Button>
-            </div>
-            {formData.functional_io?.inputs && formData.functional_io.inputs.length > 0 ? (
-              <div className="space-y-4">
-                {formData.functional_io.inputs.map((input, index) => (
-                  <div key={index} className="border border-[#D8D8D8] rounded-lg p-4 space-y-3">
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm font-medium text-[#7A7A7A]">Input #{index + 1}</span>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          const inputs = formData.functional_io?.inputs?.filter((_, i) => i !== index) || [];
-                          updateFormField('functional_io.inputs', inputs);
-                        }}
-                        className="text-red-500 hover:text-red-700 hover:bg-red-50 h-8"
-                      >
-                        Remove
-                      </Button>
-                    </div>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                      <div className="space-y-1">
-                        <Label className="text-xs text-[#7A7A7A]">Input Type</Label>
-                        <Input
-                          value={input.input_type || ''}
-                          onChange={(e) => {
-                            const inputs = [...(formData.functional_io?.inputs || [])];
-                            inputs[index] = { ...inputs[index], input_type: e.target.value };
-                            updateFormField('functional_io.inputs', inputs);
-                          }}
-                          className="border-[#D8D8D8]"
-                          placeholder="e.g., Electricity, Water"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs text-[#7A7A7A]">Quantity</Label>
-                        <Input
-                          type="number"
-                          value={input.quantity ?? ''}
-                          onChange={(e) => {
-                            const inputs = [...(formData.functional_io?.inputs || [])];
-                            inputs[index] = { ...inputs[index], quantity: e.target.value ? Number(e.target.value) : undefined };
-                            updateFormField('functional_io.inputs', inputs);
-                          }}
-                          className="border-[#D8D8D8]"
-                          placeholder="0"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs text-[#7A7A7A]">Unit</Label>
-                        <Select
-                          value={input.unit || ''}
-                          onValueChange={(v) => {
-                            const inputs = [...(formData.functional_io?.inputs || [])];
-                            inputs[index] = { ...inputs[index], unit: v };
-                            updateFormField('functional_io.inputs', inputs);
-                          }}
-                        >
-                          <SelectTrigger className="border-[#D8D8D8]">
-                            <SelectValue placeholder="Select unit" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {UNIT_OPTIONS.map((opt) => (
-                              <SelectItem key={opt.value} value={opt.value}>
-                                {opt.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs text-[#7A7A7A]">Time Period</Label>
-                        <Select
-                          value={input.time_period || ''}
-                          onValueChange={(v) => {
-                            const inputs = [...(formData.functional_io?.inputs || [])];
-                            inputs[index] = { ...inputs[index], time_period: v as TimePeriod };
-                            updateFormField('functional_io.inputs', inputs);
-                          }}
-                        >
-                          <SelectTrigger className="border-[#D8D8D8]">
-                            <SelectValue placeholder="Select period" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {TIME_PERIOD_OPTIONS.map((opt) => (
-                              <SelectItem key={opt.value} value={opt.value}>
-                                {opt.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                      <div className="space-y-1">
-                        <Label className="text-xs text-[#7A7A7A]">Estimated Value (USD)</Label>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          value={input.estimated_financial_value_usd ?? ''}
-                          onChange={(e) => {
-                            const inputs = [...(formData.functional_io?.inputs || [])];
-                            inputs[index] = { ...inputs[index], estimated_financial_value_usd: e.target.value ? Number(e.target.value) : undefined };
-                            updateFormField('functional_io.inputs', inputs);
-                          }}
-                          className="border-[#D8D8D8]"
-                          placeholder="0.00"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs text-[#7A7A7A]">Time Profile</Label>
-                        <Input
-                          value={input.time_profile || ''}
-                          onChange={(e) => {
-                            const inputs = [...(formData.functional_io?.inputs || [])];
-                            inputs[index] = { ...inputs[index], time_profile: e.target.value };
-                            updateFormField('functional_io.inputs', inputs);
-                          }}
-                          className="border-[#D8D8D8]"
-                          placeholder="e.g., Peak hours"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs text-[#7A7A7A]">Quality Spec</Label>
-                        <Input
-                          value={input.quality_spec || ''}
-                          onChange={(e) => {
-                            const inputs = [...(formData.functional_io?.inputs || [])];
-                            inputs[index] = { ...inputs[index], quality_spec: e.target.value };
-                            updateFormField('functional_io.inputs', inputs);
-                          }}
-                          className="border-[#D8D8D8]"
-                          placeholder="e.g., 120V AC"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-[#7A7A7A] text-sm">No inputs defined. Click "Add Input" to add one.</p>
-            )}
-          </div>
-
-          {/* Outputs */}
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="font-medium text-[#1A1A1A]">Outputs</h3>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  const outputs = formData.functional_io?.outputs || [];
-                  updateFormField('functional_io.outputs', [...outputs, { 
-                    output_type: '', 
-                    quantity: undefined, 
-                    unit: '', 
-                    time_period: '', 
-                    variability_profile: '', 
-                    quality_spec: '',
-                    estimated_financial_value_usd: undefined
-                  }]);
-                }}
-                className="border-[#1B4FFF] text-[#1B4FFF]"
-              >
-                Add Output
-              </Button>
-            </div>
-            {formData.functional_io?.outputs && formData.functional_io.outputs.length > 0 ? (
-              <div className="space-y-4">
-                {formData.functional_io.outputs.map((output, index) => (
-                  <div key={index} className="border border-[#D8D8D8] rounded-lg p-4 space-y-3">
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm font-medium text-[#7A7A7A]">Output #{index + 1}</span>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          const outputs = formData.functional_io?.outputs?.filter((_, i) => i !== index) || [];
-                          updateFormField('functional_io.outputs', outputs);
-                        }}
-                        className="text-red-500 hover:text-red-700 hover:bg-red-50 h-8"
-                      >
-                        Remove
-                      </Button>
-                    </div>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                      <div className="space-y-1">
-                        <Label className="text-xs text-[#7A7A7A]">Output Type</Label>
-                        <Input
-                          value={output.output_type || ''}
-                          onChange={(e) => {
-                            const outputs = [...(formData.functional_io?.outputs || [])];
-                            outputs[index] = { ...outputs[index], output_type: e.target.value };
-                            updateFormField('functional_io.outputs', outputs);
-                          }}
-                          className="border-[#D8D8D8]"
-                          placeholder="e.g., Electricity, Heat"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs text-[#7A7A7A]">Quantity</Label>
-                        <Input
-                          type="number"
-                          value={output.quantity ?? ''}
-                          onChange={(e) => {
-                            const outputs = [...(formData.functional_io?.outputs || [])];
-                            outputs[index] = { ...outputs[index], quantity: e.target.value ? Number(e.target.value) : undefined };
-                            updateFormField('functional_io.outputs', outputs);
-                          }}
-                          className="border-[#D8D8D8]"
-                          placeholder="0"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs text-[#7A7A7A]">Unit</Label>
-                        <Select
-                          value={output.unit || ''}
-                          onValueChange={(v) => {
-                            const outputs = [...(formData.functional_io?.outputs || [])];
-                            outputs[index] = { ...outputs[index], unit: v };
-                            updateFormField('functional_io.outputs', outputs);
-                          }}
-                        >
-                          <SelectTrigger className="border-[#D8D8D8]">
-                            <SelectValue placeholder="Select unit" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {UNIT_OPTIONS.map((opt) => (
-                              <SelectItem key={opt.value} value={opt.value}>
-                                {opt.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs text-[#7A7A7A]">Time Period</Label>
-                        <Select
-                          value={output.time_period || ''}
-                          onValueChange={(v) => {
-                            const outputs = [...(formData.functional_io?.outputs || [])];
-                            outputs[index] = { ...outputs[index], time_period: v as TimePeriod };
-                            updateFormField('functional_io.outputs', outputs);
-                          }}
-                        >
-                          <SelectTrigger className="border-[#D8D8D8]">
-                            <SelectValue placeholder="Select period" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {TIME_PERIOD_OPTIONS.map((opt) => (
-                              <SelectItem key={opt.value} value={opt.value}>
-                                {opt.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                      <div className="space-y-1">
-                        <Label className="text-xs text-[#7A7A7A]">Estimated Value (USD)</Label>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          value={output.estimated_financial_value_usd ?? ''}
-                          onChange={(e) => {
-                            const outputs = [...(formData.functional_io?.outputs || [])];
-                            outputs[index] = { ...outputs[index], estimated_financial_value_usd: e.target.value ? Number(e.target.value) : undefined };
-                            updateFormField('functional_io.outputs', outputs);
-                          }}
-                          className="border-[#D8D8D8]"
-                          placeholder="0.00"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs text-[#7A7A7A]">Variability Profile</Label>
-                        <Input
-                          value={output.variability_profile || ''}
-                          onChange={(e) => {
-                            const outputs = [...(formData.functional_io?.outputs || [])];
-                            outputs[index] = { ...outputs[index], variability_profile: e.target.value };
-                            updateFormField('functional_io.outputs', outputs);
-                          }}
-                          className="border-[#D8D8D8]"
-                          placeholder="e.g., Seasonal"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs text-[#7A7A7A]">Quality Spec</Label>
-                        <Input
-                          value={output.quality_spec || ''}
-                          onChange={(e) => {
-                            const outputs = [...(formData.functional_io?.outputs || [])];
-                            outputs[index] = { ...outputs[index], quality_spec: e.target.value };
-                            updateFormField('functional_io.outputs', outputs);
-                          }}
-                          className="border-[#D8D8D8]"
-                          placeholder="e.g., Grade A"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-[#7A7A7A] text-sm">No outputs defined. Click "Add Output" to add one.</p>
-            )}
-          </div>
-        </CardContent>
-      </Card>
 
       {/* Deployment */}
       <Collapsible open={deploymentOpen} onOpenChange={setDeploymentOpen}>
