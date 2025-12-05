@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
-export type DocType = 'technical_spec' | 'cad_files' | 'engineering_drawings' | 'manuals' | 'images' | 'general';
+export type DocType = 'technical_spec' | 'cad_files' | 'engineering_drawings' | 'manuals' | 'general';
 
 export interface UploadedFile {
   file: File;
@@ -22,7 +22,6 @@ const DOC_TYPE_LABELS: Record<string, string> = {
   cad_files: 'CAD Files',
   engineering_drawings: 'Engineering Drawings',
   manuals: 'Manuals & Instructions',
-  images: 'Product Images',
   general: 'Other Documents',
 };
 
@@ -109,7 +108,7 @@ export function DocumentUpload({
             multiple
             onChange={handleFileSelect}
             className="hidden"
-            accept=".pdf,.doc,.docx,.dwg,.dxf,.step,.stp,.iges,.igs,.stl,.obj,.jpg,.jpeg,.png,.gif,.webp"
+            accept=".pdf,.doc,.docx,.dwg,.dxf,.step,.stp,.iges,.igs,.stl,.obj"
           />
         </div>
       </div>
@@ -179,10 +178,10 @@ export function DocumentUpload({
       {uploadedFiles.length === 0 && existingDocuments.length === 0 && (
         <div className="border-2 border-dashed border-[#D8D8D8] rounded-lg p-8 text-center">
           <p className="text-[#7A7A7A]">
-            No files selected. Upload technical specs, CAD files, manuals, or images.
+            No files selected. Upload technical specs, CAD files, or manuals.
           </p>
           <p className="text-sm text-[#7A7A7A] mt-1">
-            Supported: PDF, DOC, DWG, DXF, STEP, STL, JPG, PNG
+            Supported: PDF, DOC, DWG, DXF, STEP, STL, OBJ
           </p>
         </div>
       )}

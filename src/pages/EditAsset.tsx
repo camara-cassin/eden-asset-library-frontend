@@ -90,7 +90,7 @@ const YEARLY_MULTIPLIERS: Record<string, number> = {
 const EDIT_SECTIONS = [
   { id: 1, name: 'Basic Information', key: 'basic_info' },
   { id: 2, name: 'Documentation', key: 'documentation' },
-  { id: 3, name: 'Images', key: 'images' },
+  { id: 3, name: 'Product Photos', key: 'images' },
   { id: 4, name: '3D & BIM Files', key: 'bim' },
   { id: 5, name: 'Physical Configuration', key: 'physical_config' },
   { id: 6, name: 'Functional I/O', key: 'functional_io' },
@@ -819,7 +819,7 @@ export function EditAsset() {
         <CardHeader>
           <CardTitle className="text-xl text-[#1A1A1A]">Documentation</CardTitle>
           <CardDescription className="text-[#7A7A7A]">
-            Upload technical specs, CAD files, manuals, and other supporting documents.
+            Upload technical specs, CAD files, manuals, and other supporting documents. For product photos, use the Images section.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -885,9 +885,9 @@ export function EditAsset() {
       {currentSection === 3 && (
       <Card className="bg-white rounded-xl shadow-sm">
         <CardHeader>
-          <CardTitle className="text-xl text-[#1A1A1A]">Images</CardTitle>
+          <CardTitle className="text-xl text-[#1A1A1A]">Product Photos</CardTitle>
           <CardDescription className="text-[#7A7A7A]">
-            Upload up to 4 images. Mark one as primary to display as the asset thumbnail.
+            Upload up to 4 product photos (JPG, PNG, GIF, WebP). Mark one as primary to display as the asset thumbnail.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
