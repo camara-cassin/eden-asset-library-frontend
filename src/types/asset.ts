@@ -226,7 +226,8 @@ export interface EnvironmentalImpact {
   air_pollution_notes?: string;
   water_pollution_notes?: string;
   soil_pollution_notes?: string;
-  material_toxicity_level?: string;
+  material_toxicity?: 'non_toxic' | 'low_toxicity' | 'moderate_toxicity' | 'high_toxicity' | 'unknown';
+  manufacturing_toxicity?: 'clean' | 'low_emissions' | 'moderate_emissions' | 'high_emissions' | 'unknown';
   recyclability_percent?: number;
   biodegradation_timeline_years?: number;
   end_of_life_pathways?: string[];

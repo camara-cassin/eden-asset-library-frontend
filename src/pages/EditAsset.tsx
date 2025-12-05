@@ -725,13 +725,40 @@ export function EditAsset() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-[#1A1A1A]">Material Toxicity Level</Label>
-                  <Input
-                    value={formData.environmental_impact?.material_toxicity_level || ''}
-                    onChange={(e) => updateFormField('environmental_impact.material_toxicity_level', e.target.value)}
-                    className="border-[#D8D8D8]"
-                    placeholder="e.g., Low, Medium, High"
-                  />
+                  <Label className="text-[#1A1A1A]">Material Toxicity</Label>
+                  <Select
+                    value={formData.environmental_impact?.material_toxicity || ''}
+                    onValueChange={(v) => updateFormField('environmental_impact.material_toxicity', v)}
+                  >
+                    <SelectTrigger className="border-[#D8D8D8]">
+                      <SelectValue placeholder="Select material toxicity" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="non_toxic">Non-toxic</SelectItem>
+                      <SelectItem value="low_toxicity">Low toxicity</SelectItem>
+                      <SelectItem value="moderate_toxicity">Moderate toxicity</SelectItem>
+                      <SelectItem value="high_toxicity">High toxicity</SelectItem>
+                      <SelectItem value="unknown">Unknown</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-[#1A1A1A]">Manufacturing Toxicity</Label>
+                  <Select
+                    value={formData.environmental_impact?.manufacturing_toxicity || ''}
+                    onValueChange={(v) => updateFormField('environmental_impact.manufacturing_toxicity', v)}
+                  >
+                    <SelectTrigger className="border-[#D8D8D8]">
+                      <SelectValue placeholder="Select manufacturing toxicity" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="clean">Clean / Non-toxic processing</SelectItem>
+                      <SelectItem value="low_emissions">Low emissions / minor hazards</SelectItem>
+                      <SelectItem value="moderate_emissions">Moderate emissions / hazardous waste</SelectItem>
+                      <SelectItem value="high_emissions">High emissions / significant toxins</SelectItem>
+                      <SelectItem value="unknown">Unknown</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-2">
                   <Label className="text-[#1A1A1A]">Recyclability (%)</Label>

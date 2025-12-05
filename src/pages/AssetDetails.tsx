@@ -501,10 +501,16 @@ export function AssetDetails() {
                       <p className="text-[#1A1A1A]">{asset.environmental_impact.operational_carbon_kg_co2e_per_year} kg CO2e/year</p>
                     </div>
                   )}
-                  {asset.environmental_impact.material_toxicity_level && (
+                  {asset.environmental_impact.material_toxicity && (
                     <div>
-                      <p className="text-sm text-[#7A7A7A]">Material Toxicity Level</p>
-                      <p className="text-[#1A1A1A]">{asset.environmental_impact.material_toxicity_level}</p>
+                      <p className="text-sm text-[#7A7A7A]">Material Toxicity</p>
+                      <p className="text-[#1A1A1A] capitalize">{asset.environmental_impact.material_toxicity.replace(/_/g, ' ')}</p>
+                    </div>
+                  )}
+                  {asset.environmental_impact.manufacturing_toxicity && (
+                    <div>
+                      <p className="text-sm text-[#7A7A7A]">Manufacturing Toxicity</p>
+                      <p className="text-[#1A1A1A] capitalize">{asset.environmental_impact.manufacturing_toxicity.replace(/_/g, ' ')}</p>
                     </div>
                   )}
                   {asset.environmental_impact.recyclability_percent !== undefined && (
