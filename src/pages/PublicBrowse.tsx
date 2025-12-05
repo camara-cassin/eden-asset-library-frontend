@@ -16,7 +16,7 @@ export function PublicBrowse() {
   const [assetTypeFilter, setAssetTypeFilter] = useState<string>('');
 
   // Fetch public assets
-  const { data: assetsData, isLoading } = useQuery({
+  const { data: assetsData, isLoading, error: fetchError } = useQuery({
     queryKey: ['publicAssets', searchQuery, categoryFilter, assetTypeFilter],
     queryFn: () =>
       listPublicAssets({
@@ -27,7 +27,7 @@ export function PublicBrowse() {
   });
 
   // Fetch reference data
-  const { data: categories } = useQuery({
+  const { data: categoriesData } = useQuery({
     queryKey: ['categories'],
     queryFn: getCategories,
   });
@@ -61,9 +61,9 @@ export function PublicBrowse() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="__all__">All Categories</SelectItem>
-                {categories?.map((cat) => (
-                  <SelectItem key={cat} value={cat}>
-                    {cat}
+                {categoriesData?.categories?.map((cat) => (
+                  <SelectItem key={cat.primary} value={cat.primary}>
+                    {cat.primary}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -90,47 +90,80 @@ export function PublicBrowse() {
         <div className="flex items-center justify-center py-12">
           <Spinner className="w-8 h-8 text-[#1B4FFF]" />
         </div>
+      ) : fetchError ? (
+        <div className="flex flex-col items-center justify-center py-12 text-red-600">
+          <p className="font-medium">Failed to load assets</p>
+          <p className="text-sm text-red-500 mt-1">
+            {fetchError instanceof Error ? fetchError.message : 'Unknown error'}
+          </p>
+        </div>
       ) : assetsData?.items?.length === 0 ? (
         <div className="text-center py-12 text-[#7A7A7A]">
           No approved assets found
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {assetsData?.items?.map((asset) => (
-            <Link key={asset.id} to={`/public/${asset.id}`}>
-              <Card className="bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow cursor-pointer h-full">
-                <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <CardTitle className="text-lg text-[#1A1A1A]">
-                        {asset.basic_information?.asset_name || 'Untitled'}
-                      </CardTitle>
-                      <CardDescription className="text-[#4A4A4A]">
-                        {asset.basic_information?.category || 'Uncategorized'}
-                      </CardDescription>
+          {assetsData?.items?.map((asset) => {
+            // Get primary image for approved assets
+            const primaryImage = asset.overview?.images?.find(img => img.is_primary) || asset.overview?.images?.[0];
+            
+            return (
+              <Link key={asset.id} to={`/public/${asset.id}`}>
+                <Card className="bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow cursor-pointer h-full overflow-hidden">
+                  {/* Primary Image */}
+                  {primaryImage ? (
+                    <div className="w-full h-48 overflow-hidden">
+                      <img
+                        src={primaryImage.url}
+                        alt={primaryImage.caption || asset.basic_information?.asset_name || 'Asset'}
+                        className="w-full h-full object-cover"
+                      />
                     </div>
-                    <Badge className="capitalize bg-[#E6EEFF] text-[#1B4FFF]">
-                      {asset.asset_type}
-                    </Badge>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-[#4A4A4A] line-clamp-3">
-                    {asset.basic_information?.short_summary || 'No description available'}
-                  </p>
-                  {asset.overview?.key_features && asset.overview.key_features.length > 0 && (
-                    <div className="mt-4 flex flex-wrap gap-1">
-                      {asset.overview.key_features.slice(0, 3).map((feature, index) => (
-                        <Badge key={index} variant="outline" className="text-xs text-[#7A7A7A]">
-                          {feature}
-                        </Badge>
-                      ))}
+                  ) : (
+                    <div className="w-full h-48 bg-gray-100 flex items-center justify-center">
+                      <span className="text-gray-400">No image</span>
                     </div>
                   )}
-                </CardContent>
-              </Card>
-            </Link>
-          ))}
+                  <CardHeader>
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <CardTitle className="text-lg text-[#1A1A1A]">
+                          {asset.basic_information?.asset_name || 'Untitled'}
+                        </CardTitle>
+                        <CardDescription className="text-[#4A4A4A]">
+                          {asset.basic_information?.category || 'Uncategorized'}
+                        </CardDescription>
+                      </div>
+                      <div className="flex flex-col gap-1 items-end">
+                        <Badge className="capitalize bg-[#E6EEFF] text-[#1B4FFF]">
+                          {asset.asset_type}
+                        </Badge>
+                        {asset.digital_assets?.bim_models && asset.digital_assets.bim_models.length > 0 && (
+                          <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700 border-purple-200">
+                            3D/BIM
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-[#4A4A4A] line-clamp-3">
+                      {asset.basic_information?.short_summary || 'No description available'}
+                    </p>
+                    {asset.overview?.key_features && asset.overview.key_features.length > 0 && (
+                      <div className="mt-4 flex flex-wrap gap-1">
+                        {asset.overview.key_features.slice(0, 3).map((feature, index) => (
+                          <Badge key={index} variant="outline" className="text-xs text-[#7A7A7A]">
+                            {feature}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </Link>
+            );
+          })}
         </div>
       )}
 

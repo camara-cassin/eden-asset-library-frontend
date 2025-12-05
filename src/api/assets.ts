@@ -1,4 +1,4 @@
-import { get, post, patch, del } from './client';
+import { get, post, patch, del, postFormData } from './client';
 import type {
   EdenAsset,
   AssetListItem,
@@ -7,9 +7,11 @@ import type {
   AssetUpdatePayload,
   FileAttachPayload,
   AIExtractPayload,
+  AIExtractionResponse,
   ApprovePayload,
   RejectPayload,
   AssetListParams,
+  UploadFilesResponse,
 } from '../types/asset';
 
 export async function createAsset(payload: AssetCreatePayload): Promise<EdenAsset> {
@@ -48,8 +50,36 @@ export async function attachFile(id: string, payload: FileAttachPayload): Promis
   return post<EdenAsset>(`/assets/${id}/files`, payload);
 }
 
-export async function aiExtract(id: string, payload: AIExtractPayload): Promise<EdenAsset> {
-  return post<EdenAsset>(`/assets/${id}/ai-extract`, payload);
+export async function aiExtract(id: string, payload: AIExtractPayload): Promise<AIExtractionResponse> {
+  return post<AIExtractionResponse>(`/assets/${id}/ai-extract`, payload);
+}
+
+export type DocType = 'technical_spec' | 'cad_files' | 'engineering_drawings' | 'manuals' | 'images' | 'general';
+
+export async function uploadFiles(
+  id: string, 
+  files: File[], 
+  docType: DocType = 'general'
+): Promise<UploadFilesResponse> {
+  const formData = new FormData();
+  files.forEach((file) => {
+    formData.append('files', file);
+  });
+  formData.append('doc_type', docType);
+  return postFormData<UploadFilesResponse>(`/assets/${id}/uploads`, formData);
+}
+
+// Upload multiple files with different doc types
+export async function uploadFilesWithTypes(
+  id: string,
+  filesWithTypes: Array<{ file: File; docType: DocType }>
+): Promise<UploadFilesResponse> {
+  const formData = new FormData();
+  filesWithTypes.forEach(({ file, docType }) => {
+    formData.append('files', file);
+    formData.append('doc_types', docType);
+  });
+  return postFormData<UploadFilesResponse>(`/assets/${id}/uploads`, formData);
 }
 
 // Public endpoints

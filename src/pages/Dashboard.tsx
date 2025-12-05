@@ -10,11 +10,17 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Spinner } from '@/components/ui/spinner';
+import { CategorySuggestionsSection } from '@/components/CategorySuggestionsSection';
+import { useAuth } from '@/contexts/AuthContext';
 import type { AssetStatus, AssetType } from '../types/asset';
 
 type FilterTab = 'all' | 'drafts' | 'submitted' | 'approved';
+type MainTab = 'assets' | 'suggestions';
 
 export function Dashboard() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
+  const [mainTab, setMainTab] = useState<MainTab>('assets');
   const [activeTab, setActiveTab] = useState<FilterTab>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('');
@@ -37,7 +43,7 @@ export function Dashboard() {
   };
 
   // Fetch assets
-  const { data: assetsData, isLoading: assetsLoading } = useQuery({
+  const { data: assetsData, isLoading: assetsLoading, error: assetsError } = useQuery({
     queryKey: ['assets', activeTab, searchQuery, categoryFilter, assetTypeFilter, statusFilter, scalingFilter],
     queryFn: () =>
       listAssets({
@@ -50,7 +56,7 @@ export function Dashboard() {
   });
 
   // Fetch reference data
-  const { data: categories } = useQuery({
+  const { data: categoriesData } = useQuery({
     queryKey: ['categories'],
     queryFn: getCategories,
   });
@@ -109,22 +115,53 @@ export function Dashboard() {
         </Link>
       </div>
 
-      {/* Filter Tabs */}
-      <div className="flex space-x-2">
-        {tabs.map((tab) => (
+      {/* Main Tabs for Admin */}
+      {isAdmin && (
+        <div className="flex space-x-4 border-b border-gray-200">
           <button
-            key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
-            className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-              activeTab === tab.key
-                ? 'bg-[#1B4FFF] text-white'
-                : 'bg-white text-[#4A4A4A] hover:bg-[#E6EEFF]'
+            onClick={() => setMainTab('assets')}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+              mainTab === 'assets'
+                ? 'border-[#1B4FFF] text-[#1B4FFF]'
+                : 'border-transparent text-[#4A4A4A] hover:text-[#1B4FFF]'
             }`}
           >
-            {tab.label}
+            Assets
           </button>
-        ))}
-      </div>
+          <button
+            onClick={() => setMainTab('suggestions')}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+              mainTab === 'suggestions'
+                ? 'border-[#1B4FFF] text-[#1B4FFF]'
+                : 'border-transparent text-[#4A4A4A] hover:text-[#1B4FFF]'
+            }`}
+          >
+            Category Suggestions
+          </button>
+        </div>
+      )}
+
+      {/* Category Suggestions Section (Admin Only) */}
+      {isAdmin && mainTab === 'suggestions' ? (
+        <CategorySuggestionsSection isAdmin={isAdmin} />
+      ) : (
+        <>
+          {/* Filter Tabs */}
+          <div className="flex space-x-2">
+            {tabs.map((tab) => (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                  activeTab === tab.key
+                    ? 'bg-[#1B4FFF] text-white'
+                    : 'bg-white text-[#4A4A4A] hover:bg-[#E6EEFF]'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
 
       {/* Filters */}
       <Card className="bg-white rounded-xl shadow-sm">
@@ -142,9 +179,9 @@ export function Dashboard() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="__all__">All Categories</SelectItem>
-                {categories?.map((cat) => (
-                  <SelectItem key={cat} value={cat}>
-                    {cat}
+                {categoriesData?.categories?.map((cat) => (
+                  <SelectItem key={cat.primary} value={cat.primary}>
+                    {cat.primary}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -201,55 +238,108 @@ export function Dashboard() {
             <div className="flex items-center justify-center py-12">
               <Spinner className="w-8 h-8 text-[#1B4FFF]" />
             </div>
+          ) : assetsError ? (
+            <div className="flex flex-col items-center justify-center py-12 text-red-600">
+              <p className="font-medium">Failed to load assets</p>
+              <p className="text-sm text-red-500 mt-1">
+                {assetsError instanceof Error ? assetsError.message : 'Unknown error'}
+              </p>
+            </div>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow className="bg-[#F5F6FA]">
+                  <TableHead className="text-[#4A4A4A] w-16"></TableHead>
                   <TableHead className="text-[#4A4A4A]">Asset Name</TableHead>
                   <TableHead className="text-[#4A4A4A]">Asset Type</TableHead>
                   <TableHead className="text-[#4A4A4A]">Category</TableHead>
                   <TableHead className="text-[#4A4A4A]">Status</TableHead>
                   <TableHead className="text-[#4A4A4A]">Submission Status</TableHead>
+                  {isAdmin && <TableHead className="text-[#4A4A4A]">Created By</TableHead>}
+                  {isAdmin && <TableHead className="text-[#4A4A4A]">Created At</TableHead>}
+                  {isAdmin && <TableHead className="text-[#4A4A4A]">Updated By</TableHead>}
                   <TableHead className="text-[#4A4A4A]">Last Updated</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {assetsData?.items?.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-[#7A7A7A]">
+                    <TableCell colSpan={7} className="text-center py-8 text-[#7A7A7A]">
                       No assets found
                     </TableCell>
                   </TableRow>
                 ) : (
-                  assetsData?.items?.map((asset) => (
-                    <TableRow key={asset.id} className="hover:bg-[#F5F6FA]">
-                      <TableCell>
-                        <Link
-                          to={`/assets/${asset.id}`}
-                          className="text-[#1B4FFF] hover:underline font-medium"
-                        >
-                          {asset.basic_information?.asset_name || 'Untitled'}
-                        </Link>
-                      </TableCell>
-                      <TableCell className="text-[#1A1A1A] capitalize">{asset.asset_type}</TableCell>
-                      <TableCell className="text-[#1A1A1A]">
-                        {asset.basic_information?.category || '-'}
-                      </TableCell>
-                      <TableCell>
-                        <Badge className={getStatusBadgeColor(asset.status)}>
-                          {asset.status || 'draft'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="text-[#4A4A4A]">
-                          {asset.contributor?.submission_status || 'draft'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-[#4A4A4A]">
-                        {formatDate(asset.system_meta?.updated_at)}
-                      </TableCell>
-                    </TableRow>
-                  ))
+                  assetsData?.items?.map((asset) => {
+                    // Get primary image (only for approved assets)
+                    const primaryImage = asset.status === 'approved' 
+                      ? asset.overview?.images?.find(img => img.is_primary) || asset.overview?.images?.[0]
+                      : null;
+                    
+                    return (
+                      <TableRow key={asset.id} className="hover:bg-[#F5F6FA]">
+                        <TableCell className="w-16 p-2">
+                          {primaryImage ? (
+                            <img
+                              src={primaryImage.url}
+                              alt={primaryImage.caption || asset.basic_information?.asset_name || 'Asset'}
+                              className="w-12 h-12 object-cover rounded"
+                            />
+                          ) : (
+                            <div className="w-12 h-12 bg-gray-100 rounded flex items-center justify-center">
+                              <span className="text-gray-400 text-xs">No img</span>
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Link
+                              to={`/assets/${asset.id}`}
+                              className="text-[#1B4FFF] hover:underline font-medium"
+                            >
+                              {asset.basic_information?.asset_name || 'Untitled'}
+                            </Link>
+                            {asset.digital_assets?.bim_models && asset.digital_assets.bim_models.length > 0 && (
+                              <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700 border-purple-200">
+                                3D/BIM
+                              </Badge>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-[#1A1A1A] capitalize">{asset.asset_type}</TableCell>
+                        <TableCell className="text-[#1A1A1A]">
+                          {asset.basic_information?.category || '-'}
+                        </TableCell>
+                        <TableCell>
+                          <Badge className={getStatusBadgeColor(asset.status)}>
+                            {asset.status || 'draft'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="text-[#4A4A4A]">
+                            {asset.contributor?.submission_status || 'draft'}
+                          </Badge>
+                        </TableCell>
+                        {isAdmin && (
+                          <TableCell className="text-[#4A4A4A] text-sm">
+                            {asset.created_by || '-'}
+                          </TableCell>
+                        )}
+                        {isAdmin && (
+                          <TableCell className="text-[#4A4A4A] text-sm">
+                            {formatDate(asset.created_at)}
+                          </TableCell>
+                        )}
+                        {isAdmin && (
+                          <TableCell className="text-[#4A4A4A] text-sm">
+                            {asset.updated_by || '-'}
+                          </TableCell>
+                        )}
+                        <TableCell className="text-[#4A4A4A]">
+                          {formatDate(asset.updated_at || asset.system_meta?.updated_at)}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
                 )}
               </TableBody>
             </Table>
@@ -257,11 +347,13 @@ export function Dashboard() {
         </CardContent>
       </Card>
 
-      {/* Pagination info */}
-      {assetsData && (
-        <div className="text-sm text-[#4A4A4A]">
-          Showing {assetsData.items?.length || 0} of {assetsData.total} assets
-        </div>
+          {/* Pagination info */}
+          {assetsData && (
+            <div className="text-sm text-[#4A4A4A]">
+              Showing {assetsData.items?.length || 0} of {assetsData.total} assets
+            </div>
+          )}
+        </>
       )}
     </div>
   );

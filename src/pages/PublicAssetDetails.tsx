@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 export function PublicAssetDetails() {
   const { id } = useParams<{ id: string }>();
 
-  const { data: asset, isLoading } = useQuery({
+  const { data: asset, isLoading, error: fetchError } = useQuery({
     queryKey: ['publicAsset', id],
     queryFn: () => getPublicAsset(id!),
     enabled: !!id,
@@ -20,6 +20,17 @@ export function PublicAssetDetails() {
     return (
       <div className="flex items-center justify-center py-12">
         <Spinner className="w-8 h-8 text-[#1B4FFF]" />
+      </div>
+    );
+  }
+
+  if (fetchError) {
+    return (
+      <div className="text-center py-12">
+        <p className="text-red-600 font-medium">Failed to load asset</p>
+        <p className="text-red-500 text-sm mt-1">
+          {fetchError instanceof Error ? fetchError.message : 'Unknown error'}
+        </p>
       </div>
     );
   }

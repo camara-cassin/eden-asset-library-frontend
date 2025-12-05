@@ -1,33 +1,253 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { createAsset } from '../api/assets';
-import { getAssetTypes, getCategories, getSubcategories, getScalingPotentials } from '../api/reference';
+import axios from 'axios';
+import { createAsset, uploadFiles, aiExtract } from '../api/assets';
+import { getAssetTypes, getCategories } from '../api/reference';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
-import type { AssetType, ScalingPotential } from '../types/asset';
+import { CategorySelector } from '@/components/CategorySelector';
+import { SuggestCategoryModal } from '@/components/SuggestCategoryModal';
+import type { AssetType, CategorySelection } from '../types/asset';
+
+const STORAGE_KEY = 'eden_create_asset_draft';
+
+interface ValidationErrors {
+  assetType?: string;
+  assetName?: string;
+  categories?: string;
+  subcategories?: string;
+  shortSummary?: string;
+  companyName?: string;
+  companyEmail?: string;
+  websiteUrl?: string;
+  documentation?: string;
+  photos?: string;
+  retailPrice?: string;
+}
+
+interface UploadedFile {
+  file: File;
+  docType: 'technical_spec' | 'cad_files' | 'engineering_drawings' | 'manuals' | 'images' | 'general';
+}
+
+interface FormData {
+  assetType: AssetType;
+  assetName: string;
+  categories: CategorySelection[];
+  shortSummary: string;
+  companyName: string;
+  companyEmail: string;
+  companyPhone: string;
+  websiteUrl: string;
+  externalDocUrl: string;
+  retailPrice: string;
+}
+
+const DOC_TYPE_LABELS: Record<string, string> = {
+  technical_spec: 'Technical Specifications',
+  cad_files: 'CAD Files',
+  engineering_drawings: 'Engineering Drawings',
+  manuals: 'Manuals & Instructions',
+  general: 'Other Documents',
+};
+
+const STEPS = [
+  { id: 1, name: 'Basic Info', description: 'Name, type, and categories' },
+  { id: 2, name: 'Supplier', description: 'Company and contact details' },
+  { id: 3, name: 'Documentation', description: 'Upload files or URLs' },
+  { id: 4, name: 'Pricing', description: 'Set retail price' },
+  { id: 5, name: 'Review', description: 'Review and submit' },
+];
+
+const getInitialFormData = (): FormData => {
+  // Try to load from localStorage
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      return {
+        assetType: parsed.assetType || 'physical',
+        assetName: parsed.assetName || '',
+        categories: parsed.categories || [],
+        shortSummary: parsed.shortSummary || '',
+        companyName: parsed.companyName || '',
+        companyEmail: parsed.companyEmail || '',
+        companyPhone: parsed.companyPhone || '',
+        websiteUrl: parsed.websiteUrl || '',
+        externalDocUrl: parsed.externalDocUrl || '',
+        retailPrice: parsed.retailPrice || '',
+      };
+    }
+  } catch (e) {
+    console.error('Failed to load draft from localStorage:', e);
+  }
+  
+  return {
+    assetType: 'physical',
+    assetName: '',
+    categories: [],
+    shortSummary: '',
+    companyName: '',
+    companyEmail: '',
+    companyPhone: '',
+    websiteUrl: '',
+    externalDocUrl: '',
+    retailPrice: '',
+  };
+};
 
 export function CreateAsset() {
   const navigate = useNavigate();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const photoInputRef = useRef<HTMLInputElement>(null);
 
-  // Form state
-  const [assetType, setAssetType] = useState<AssetType>('physical');
-  const [assetName, setAssetName] = useState('');
-  const [category, setCategory] = useState('');
-  const [subcategory, setSubcategory] = useState('');
-  const [shortSummary, setShortSummary] = useState('');
-  const [scalingPotential, setScalingPotential] = useState<ScalingPotential | ''>('');
-  const [contributorName, setContributorName] = useState('');
-  const [contributorEmail, setContributorEmail] = useState('');
-  const [contributorId, setContributorId] = useState('');
-  const [contributorNotes, setContributorNotes] = useState('');
-  const [assetTypeDescription, setAssetTypeDescription] = useState('');
-  const [intendedUseCases, setIntendedUseCases] = useState('');
+  // Current step (1-4)
+  const [currentStep, setCurrentStep] = useState(1);
+  
+  // Form state with auto-save
+  const [formData, setFormData] = useState<FormData>(getInitialFormData);
+  
+  // File upload state (not saved to localStorage - files can't be serialized)
+  const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
+  const [uploadedPhotos, setUploadedPhotos] = useState<File[]>([]);
+  const [currentDocType, setCurrentDocType] = useState<UploadedFile['docType']>('general');
+  
+  // Validation and UI state
+  const [validationErrors, setValidationErrors] = useState<ValidationErrors>({});
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
+  const [isUploading, setIsUploading] = useState(false);
+  const [isExtracting, setIsExtracting] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  
+  // Suggest category modal state
+  const [showSuggestModal, setShowSuggestModal] = useState(false);
+
+  // Auto-save to localStorage whenever form data changes
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(formData));
+    } catch (e) {
+      console.error('Failed to save draft to localStorage:', e);
+    }
+  }, [formData]);
+
+  // Clear draft from localStorage
+  const clearDraft = useCallback(() => {
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+    } catch (e) {
+      console.error('Failed to clear draft from localStorage:', e);
+    }
+  }, []);
+
+  // Update form data helper
+  const updateFormData = useCallback((updates: Partial<FormData>) => {
+    setFormData(prev => ({ ...prev, ...updates }));
+  }, []);
+
+  const validateStep1 = (): boolean => {
+    const errors: ValidationErrors = {};
+    
+    if (!formData.assetType) {
+      errors.assetType = 'Asset type is required';
+    }
+    if (!formData.assetName.trim()) {
+      errors.assetName = 'Asset name is required';
+    }
+    if (formData.categories.length === 0) {
+      errors.categories = 'At least one category is required';
+    } else if (formData.categories.length > 4) {
+      errors.categories = 'Maximum 4 categories allowed';
+    }
+    // Check that at least one category has a subcategory selected
+    const hasSubcategory = formData.categories.some(c => c.subcategories && c.subcategories.length > 0);
+    if (formData.categories.length > 0 && !hasSubcategory) {
+      errors.subcategories = 'At least one subcategory is required';
+    }
+    if (!formData.shortSummary.trim()) {
+      errors.shortSummary = 'Short summary is required';
+    }
+    
+    setValidationErrors(prev => ({ ...prev, ...errors }));
+    return Object.keys(errors).length === 0;
+  };
+
+  const validateStep2 = (): boolean => {
+    const errors: ValidationErrors = {};
+    
+    if (!formData.companyName.trim()) {
+      errors.companyName = 'Supplier name is required';
+    }
+    if (!formData.companyEmail.trim()) {
+      errors.companyEmail = 'Supplier email is required';
+    } else {
+      // Basic email validation
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(formData.companyEmail)) {
+        errors.companyEmail = 'Please enter a valid email address';
+      }
+    }
+    if (!formData.websiteUrl.trim()) {
+      errors.websiteUrl = 'Supplier website is required';
+    } else {
+      // Basic URL validation
+      try {
+        new URL(formData.websiteUrl);
+      } catch {
+        errors.websiteUrl = 'Please enter a valid URL (e.g., https://example.com)';
+      }
+    }
+    
+    setValidationErrors(prev => ({ ...prev, ...errors }));
+    return Object.keys(errors).length === 0;
+  };
+
+  const validateStep3 = (): boolean => {
+    const errors: ValidationErrors = {};
+    
+    // Require at least one file upload OR one external documentation URL
+    const hasFiles = uploadedFiles.length > 0;
+    const hasExternalUrl = formData.externalDocUrl.trim() !== '';
+    
+    if (!hasFiles && !hasExternalUrl) {
+      errors.documentation = 'Please upload at least one file or provide an external documentation URL';
+    }
+    
+    // Require at least one photo from the separate photo upload section
+    if (uploadedPhotos.length === 0) {
+      errors.photos = 'Please upload at least one product photo';
+    }
+    
+    setValidationErrors(prev => ({ ...prev, ...errors }));
+    return Object.keys(errors).length === 0;
+  };
+
+  const validateStep4 = (): boolean => {
+    const errors: ValidationErrors = {};
+    
+    if (formData.retailPrice.trim() === '') {
+      errors.retailPrice = 'Retail price is required';
+    } else {
+      const price = parseFloat(formData.retailPrice);
+      if (isNaN(price) || price < 0) {
+        errors.retailPrice = 'Please enter a valid price (0 or greater)';
+      }
+    }
+    
+    setValidationErrors(prev => ({ ...prev, ...errors }));
+    return Object.keys(errors).length === 0;
+  };
+
+  const handleBlur = (field: string) => {
+    setTouched((prev) => ({ ...prev, [field]: true }));
+  };
 
   // Fetch reference data
   const { data: assetTypes } = useQuery({
@@ -35,279 +255,989 @@ export function CreateAsset() {
     queryFn: getAssetTypes,
   });
 
-  const { data: categories } = useQuery({
+  const { data: categoriesData } = useQuery({
     queryKey: ['categories'],
     queryFn: getCategories,
-  });
-
-  const { data: subcategories } = useQuery({
-    queryKey: ['subcategories', category],
-    queryFn: () => getSubcategories(category),
-    enabled: !!category,
-  });
-
-  const { data: scalingPotentials } = useQuery({
-    queryKey: ['scalingPotentials'],
-    queryFn: getScalingPotentials,
   });
 
   // Create mutation
   const createMutation = useMutation({
     mutationFn: createAsset,
-    onSuccess: (data) => {
-      navigate(`/assets/${data.id}/edit`);
+    onSuccess: async (data) => {
+      const assetId = data.id;
+      
+      // If there are files to upload, upload them
+      if ((uploadedFiles.length > 0 || uploadedPhotos.length > 0) && assetId) {
+        setIsUploading(true);
+        try {
+          // Upload documents if any
+          if (uploadedFiles.length > 0) {
+            // Group files by doc type
+            const filesByType = uploadedFiles.reduce((acc, { file, docType }) => {
+              if (!acc[docType]) acc[docType] = [];
+              acc[docType].push(file);
+              return acc;
+            }, {} as Record<string, File[]>);
+            
+            // Upload each group
+            for (const [docType, files] of Object.entries(filesByType)) {
+              await uploadFiles(assetId, files, docType as UploadedFile['docType']);
+            }
+          }
+          
+          // Upload photos if any
+          if (uploadedPhotos.length > 0) {
+            await uploadFiles(assetId, uploadedPhotos, 'images');
+          }
+        } catch (error) {
+          console.error('File upload error:', error);
+          setUploadError('Some files failed to upload. You can add them later in the edit page.');
+        } finally {
+          setIsUploading(false);
+        }
+      }
+      
+      // Clear the draft from localStorage on success
+      clearDraft();
+      
+      // Navigate to edit page
+      navigate(`/assets/${assetId}/edit`);
+    },
+    onError: (error) => {
+      // Extract detailed error message from backend
+      let errorMessage = 'Failed to create asset. Please try again.';
+      
+      if (axios.isAxiosError(error) && error.response?.data) {
+        const detail = error.response.data.detail;
+        if (detail?.error?.message) {
+          errorMessage = detail.error.message;
+        } else if (typeof detail === 'string') {
+          errorMessage = detail;
+        }
+      } else if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      
+      setSubmitError(errorMessage);
+      // Don't clear form data on error - preserve user input
     },
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  // AI Extract mutation
+  const extractMutation = useMutation({
+    mutationFn: async (assetId: string) => {
+      return aiExtract(assetId, {
+        website_url: formData.websiteUrl || undefined,
+        use_uploaded_docs: true,
+      });
+    },
+  });
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+    
+    const newFiles: UploadedFile[] = Array.from(files).map((file) => ({
+      file,
+      docType: currentDocType,
+    }));
+    
+    setUploadedFiles((prev) => [...prev, ...newFiles]);
+    
+    // Reset file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const removeFile = (index: number) => {
+    setUploadedFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+    
+    setUploadedPhotos((prev) => [...prev, ...Array.from(files)]);
+    
+    // Reset file input
+    if (photoInputRef.current) {
+      photoInputRef.current.value = '';
+    }
+  };
+
+  const removePhoto = (index: number) => {
+    setUploadedPhotos((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleNext = () => {
+    // Clear previous validation errors for this step
+    setValidationErrors({});
+    
+    if (currentStep === 1) {
+      setTouched({
+        assetType: true,
+        assetName: true,
+        categories: true,
+        subcategories: true,
+        shortSummary: true,
+      });
+      
+      if (!validateStep1()) {
+        return;
+      }
+    } else if (currentStep === 2) {
+      setTouched(prev => ({
+        ...prev,
+        companyName: true,
+        companyEmail: true,
+        websiteUrl: true,
+      }));
+      
+      if (!validateStep2()) {
+        return;
+      }
+    } else if (currentStep === 3) {
+      setTouched(prev => ({
+        ...prev,
+        documentation: true,
+        photos: true,
+      }));
+      
+      if (!validateStep3()) {
+        return;
+      }
+    }else if (currentStep === 4) {
+      setTouched(prev => ({
+        ...prev,
+        retailPrice: true,
+      }));
+      
+      if (!validateStep4()) {
+        return;
+      }
+    }
+    
+    setCurrentStep(prev => Math.min(prev + 1, 5));
+  };
+
+  const handleBack = () => {
+    setCurrentStep(prev => Math.max(prev - 1, 1));
+  };
+
+  const handleSubmit = () => {
+    // Clear any previous errors
+    setSubmitError(null);
+    setValidationErrors({});
+    
+    // Final validation of all steps
+    if (!validateStep1()) {
+      setCurrentStep(1);
+      return;
+    }
+    if (!validateStep2()) {
+      setCurrentStep(2);
+      return;
+    }
+    if (!validateStep3()) {
+      setCurrentStep(3);
+      return;
+    }
+    if (!validateStep4()) {
+      setCurrentStep(4);
+      return;
+    }
+    
     createMutation.mutate({
-      asset_type: assetType,
+      asset_type: formData.assetType,
       basic_information: {
-        asset_name: assetName,
-        category,
-        subcategory: subcategory || undefined,
-        short_summary: shortSummary || undefined,
-        scaling_potential: scalingPotential || undefined,
+        asset_name: formData.assetName,
+        categories: formData.categories,
+        short_summary: formData.shortSummary,
+        company_name: formData.companyName,
+        company_email: formData.companyEmail,
+        company_phone: formData.companyPhone || undefined,
+        company_website_url: formData.websiteUrl,
       },
-      contributor: {
-        name: contributorName || undefined,
-        email: contributorEmail || undefined,
-        contributor_id: contributorId || undefined,
-        notes: contributorNotes || undefined,
+      economics: {
+        retail_price: parseFloat(formData.retailPrice),
       },
-      overview: {
-        asset_type_description: assetTypeDescription || undefined,
-        intended_use_cases: intendedUseCases ? intendedUseCases.split('\n').filter(Boolean) : undefined,
-      },
+      external_documentation_url: formData.externalDocUrl || undefined,
     });
   };
 
-  return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-semibold text-[#1A1A1A]">Create New Asset</h1>
+  const handleExtractWithAI = async () => {
+    // Clear any previous errors
+    setSubmitError(null);
+    setValidationErrors({});
+    
+    // Final validation of all steps
+    if (!validateStep1()) {
+      setCurrentStep(1);
+      return;
+    }
+    if (!validateStep2()) {
+      setCurrentStep(2);
+      return;
+    }
+    if (!validateStep3()) {
+      setCurrentStep(3);
+      return;
+    }
+    if (!validateStep4()) {
+      setCurrentStep(4);
+      return;
+    }
+    
+    setIsExtracting(true);
+    
+    try {
+      // Create the asset first
+      const asset = await createMutation.mutateAsync({
+        asset_type: formData.assetType,
+        basic_information: {
+          asset_name: formData.assetName,
+          categories: formData.categories,
+          short_summary: formData.shortSummary,
+          company_name: formData.companyName,
+          company_email: formData.companyEmail,
+          company_phone: formData.companyPhone || undefined,
+          company_website_url: formData.websiteUrl,
+        },
+        economics: {
+          retail_price: parseFloat(formData.retailPrice),
+        },
+        external_documentation_url: formData.externalDocUrl || undefined,
+      });
+      
+      const assetId = asset.id;
+      if (!assetId) {
+        throw new Error('Asset ID not returned');
+      }
+      
+      // Upload documents if any
+      if (uploadedFiles.length > 0) {
+        setIsUploading(true);
+        const filesByType = uploadedFiles.reduce((acc, { file, docType }) => {
+          if (!acc[docType]) acc[docType] = [];
+          acc[docType].push(file);
+          return acc;
+        }, {} as Record<string, File[]>);
+        
+        for (const [docType, files] of Object.entries(filesByType)) {
+          await uploadFiles(assetId, files, docType as UploadedFile['docType']);
+        }
+      }
+      
+      // Upload photos if any
+      if (uploadedPhotos.length > 0) {
+        setIsUploading(true);
+        await uploadFiles(assetId, uploadedPhotos, 'images');
+      }
+      
+      setIsUploading(false);
+      
+      // Trigger AI extraction
+      await extractMutation.mutateAsync(assetId);
+      
+      // Clear the draft from localStorage on success
+      clearDraft();
+      
+      // Navigate to edit page
+      navigate(`/assets/${assetId}/edit`);
+    } catch (error) {
+      console.error('Extract with AI error:', error);
+      
+      // Extract detailed error message
+      let errorMessage = 'Failed to create asset. Please try again.';
+      
+      if (axios.isAxiosError(error) && error.response?.data) {
+        const detail = error.response.data.detail;
+        if (detail?.error?.message) {
+          errorMessage = detail.error.message;
+        } else if (typeof detail === 'string') {
+          errorMessage = detail;
+        }
+      } else if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      
+      setSubmitError(errorMessage);
+      setIsExtracting(false);
+    }
+  };
 
-      <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Basic Information */}
-        <Card className="bg-white rounded-xl shadow-sm">
-          <CardHeader>
-            <CardTitle className="text-xl text-[#1A1A1A]">Basic Information</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="assetType" className="text-[#1A1A1A]">Asset Type *</Label>
-                <Select value={assetType} onValueChange={(v) => setAssetType(v as AssetType)}>
-                  <SelectTrigger className="border-[#D8D8D8]">
-                    <SelectValue placeholder="Select type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {assetTypes?.map((type) => (
-                      <SelectItem key={type} value={type}>
-                        {type}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+  const formatAssetType = (type: string) => {
+    return type.charAt(0).toUpperCase() + type.slice(1);
+  };
 
-              <div className="space-y-2">
-                <Label htmlFor="assetName" className="text-[#1A1A1A]">Asset Name *</Label>
-                <Input
-                  id="assetName"
-                  value={assetName}
-                  onChange={(e) => setAssetName(e.target.value)}
-                  placeholder="Enter asset name"
-                  required
-                  className="border-[#D8D8D8] focus:ring-[#1B4FFF]"
-                />
-              </div>
+  const isProcessing = createMutation.isPending || isUploading || isExtracting;
 
-              <div className="space-y-2">
-                <Label htmlFor="category" className="text-[#1A1A1A]">Category *</Label>
-                <Select value={category} onValueChange={setCategory}>
-                  <SelectTrigger className="border-[#D8D8D8]">
-                    <SelectValue placeholder="Select category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories?.map((cat) => (
-                      <SelectItem key={cat} value={cat}>
-                        {cat}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+  // Helper to check if there are any validation errors for the current step
+  const hasValidationErrors = Object.keys(validationErrors).length > 0;
 
-              <div className="space-y-2">
-                <Label htmlFor="subcategory" className="text-[#1A1A1A]">Subcategory</Label>
-                <Select value={subcategory} onValueChange={setSubcategory} disabled={!category}>
-                  <SelectTrigger className="border-[#D8D8D8]">
-                    <SelectValue placeholder="Select subcategory" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {subcategories?.map((sub) => (
-                      <SelectItem key={sub} value={sub}>
-                        {sub}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="scalingPotential" className="text-[#1A1A1A]">Scaling Potential</Label>
-                <Select value={scalingPotential} onValueChange={(v) => setScalingPotential(v as ScalingPotential)}>
-                  <SelectTrigger className="border-[#D8D8D8]">
-                    <SelectValue placeholder="Select scaling potential" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {scalingPotentials?.map((sp) => (
-                      <SelectItem key={sp} value={sp}>
-                        {sp}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="shortSummary" className="text-[#1A1A1A]">Short Summary</Label>
-              <Textarea
-                id="shortSummary"
-                value={shortSummary}
-                onChange={(e) => setShortSummary(e.target.value)}
-                placeholder="Brief description of the asset"
-                rows={3}
-                className="border-[#D8D8D8] focus:ring-[#1B4FFF]"
-              />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Contributor */}
-        <Card className="bg-white rounded-xl shadow-sm">
-          <CardHeader>
-            <CardTitle className="text-xl text-[#1A1A1A]">Contributor</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="contributorName" className="text-[#1A1A1A]">Name</Label>
-                <Input
-                  id="contributorName"
-                  value={contributorName}
-                  onChange={(e) => setContributorName(e.target.value)}
-                  placeholder="Contributor name"
-                  className="border-[#D8D8D8] focus:ring-[#1B4FFF]"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="contributorEmail" className="text-[#1A1A1A]">Email</Label>
-                <Input
-                  id="contributorEmail"
-                  type="email"
-                  value={contributorEmail}
-                  onChange={(e) => setContributorEmail(e.target.value)}
-                  placeholder="contributor@example.com"
-                  className="border-[#D8D8D8] focus:ring-[#1B4FFF]"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="contributorId" className="text-[#1A1A1A]">Contributor ID</Label>
-                <Input
-                  id="contributorId"
-                  value={contributorId}
-                  onChange={(e) => setContributorId(e.target.value)}
-                  placeholder="user_123"
-                  className="border-[#D8D8D8] focus:ring-[#1B4FFF]"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="contributorNotes" className="text-[#1A1A1A]">Notes</Label>
-              <Textarea
-                id="contributorNotes"
-                value={contributorNotes}
-                onChange={(e) => setContributorNotes(e.target.value)}
-                placeholder="Additional notes"
-                rows={2}
-                className="border-[#D8D8D8] focus:ring-[#1B4FFF]"
-              />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Overview */}
-        <Card className="bg-white rounded-xl shadow-sm">
-          <CardHeader>
-            <CardTitle className="text-xl text-[#1A1A1A]">Overview</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="assetTypeDescription" className="text-[#1A1A1A]">Asset Type Description</Label>
-              <Textarea
-                id="assetTypeDescription"
-                value={assetTypeDescription}
-                onChange={(e) => setAssetTypeDescription(e.target.value)}
-                placeholder="Describe the type of asset"
-                rows={3}
-                className="border-[#D8D8D8] focus:ring-[#1B4FFF]"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="intendedUseCases" className="text-[#1A1A1A]">Intended Use Cases</Label>
-              <Textarea
-                id="intendedUseCases"
-                value={intendedUseCases}
-                onChange={(e) => setIntendedUseCases(e.target.value)}
-                placeholder="Enter each use case on a new line"
-                rows={4}
-                className="border-[#D8D8D8] focus:ring-[#1B4FFF]"
-              />
-              <p className="text-sm text-[#7A7A7A]">Enter each use case on a separate line</p>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Error display */}
-        {createMutation.isError && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">
-            {createMutation.error instanceof Error ? createMutation.error.message : 'An error occurred'}
+  // Validation error summary component
+  const ValidationErrorSummary = ({ errors }: { errors: ValidationErrors }) => {
+    const errorMessages = Object.values(errors).filter(Boolean);
+    if (errorMessages.length === 0) return null;
+    
+    return (
+      <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+        <div className="flex items-start gap-3">
+          <div className="flex-shrink-0">
+            <svg className="h-5 w-5 text-red-500" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+            </svg>
           </div>
-        )}
+          <div>
+            <h3 className="text-sm font-medium text-red-800">Please complete the following required fields:</h3>
+            <ul className="mt-2 text-sm text-red-700 list-disc list-inside space-y-1">
+              {errorMessages.map((msg, idx) => (
+                <li key={idx}>{msg}</li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
-        {/* Actions */}
-        <div className="flex justify-end space-x-4">
+  // Step indicator component
+  const StepIndicator = () => (
+    <div className="mb-8">
+      <div className="flex items-center justify-between">
+        {STEPS.map((step, index) => (
+          <div key={step.id} className="flex items-center">
+            <div className="flex flex-col items-center">
+              <div
+                className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium ${
+                  currentStep >= step.id
+                    ? 'bg-[#1B4FFF] text-white'
+                    : 'bg-gray-200 text-gray-500'
+                }`}
+              >
+                {step.id}
+              </div>
+              <div className="mt-2 text-center">
+                <p className={`text-sm font-medium ${currentStep >= step.id ? 'text-[#1A1A1A]' : 'text-gray-500'}`}>
+                  {step.name}
+                </p>
+                <p className="text-xs text-gray-400 hidden sm:block">{step.description}</p>
+              </div>
+            </div>
+            {index < STEPS.length - 1 && (
+              <div
+                className={`h-1 w-12 sm:w-24 mx-2 ${
+                  currentStep > step.id ? 'bg-[#1B4FFF]' : 'bg-gray-200'
+                }`}
+              />
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
+  // Step 1: Basic Information
+  const renderStep1 = () => (
+    <Card className="bg-white rounded-xl shadow-sm">
+      <CardHeader>
+        <CardTitle className="text-xl text-[#1A1A1A]">Basic Information</CardTitle>
+        <CardDescription>Required fields to create your asset</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {hasValidationErrors && <ValidationErrorSummary errors={validationErrors} />}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="assetName" className="text-[#1A1A1A]">Asset Name *</Label>
+            <Input
+              id="assetName"
+              value={formData.assetName}
+              onChange={(e) => updateFormData({ assetName: e.target.value })}
+              onBlur={() => handleBlur('assetName')}
+              placeholder="e.g., Solar Roof Tile X100"
+              className={`border-[#D8D8D8] focus:ring-[#1B4FFF] ${touched.assetName && validationErrors.assetName ? 'border-red-500' : ''}`}
+            />
+            {touched.assetName && validationErrors.assetName && (
+              <p className="text-sm text-red-500">{validationErrors.assetName}</p>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="assetType" className="text-[#1A1A1A]">Asset Type *</Label>
+            <Select value={formData.assetType} onValueChange={(v) => updateFormData({ assetType: v as AssetType })}>
+              <SelectTrigger className={`border-[#D8D8D8] ${touched.assetType && validationErrors.assetType ? 'border-red-500' : ''}`}>
+                <SelectValue placeholder="Select type" />
+              </SelectTrigger>
+              <SelectContent>
+                {assetTypes?.map((type) => (
+                  <SelectItem key={type} value={type}>
+                    {formatAssetType(type)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {touched.assetType && validationErrors.assetType && (
+              <p className="text-sm text-red-500">{validationErrors.assetType}</p>
+            )}
+          </div>
+        </div>
+
+        {/* Category Selection */}
+        <div className="space-y-2">
+          <Label className="text-[#1A1A1A]">Categories * (select 1-4, with at least one subcategory)</Label>
+          <CategorySelector
+            value={formData.categories}
+            onChange={(categories) => updateFormData({ categories })}
+            maxCategories={4}
+            minCategories={1}
+            showSuggestLink={true}
+            onSuggestCategory={() => setShowSuggestModal(true)}
+          />
+          {touched.categories && validationErrors.categories && (
+            <p className="text-sm text-red-500">{validationErrors.categories}</p>
+          )}
+          {touched.subcategories && validationErrors.subcategories && (
+            <p className="text-sm text-red-500">{validationErrors.subcategories}</p>
+          )}
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="shortSummary" className="text-[#1A1A1A]">Short Summary *</Label>
+          <Textarea
+            id="shortSummary"
+            value={formData.shortSummary}
+            onChange={(e) => updateFormData({ shortSummary: e.target.value })}
+            onBlur={() => handleBlur('shortSummary')}
+            placeholder="Brief description of the asset and its purpose"
+            rows={3}
+            className={`border-[#D8D8D8] focus:ring-[#1B4FFF] ${touched.shortSummary && validationErrors.shortSummary ? 'border-red-500' : ''}`}
+          />
+          {touched.shortSummary && validationErrors.shortSummary && (
+            <p className="text-sm text-red-500">{validationErrors.shortSummary}</p>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+
+  // Step 2: Supplier Information
+  const renderStep2 = () => (
+    <Card className="bg-white rounded-xl shadow-sm">
+      <CardHeader>
+        <CardTitle className="text-xl text-[#1A1A1A]">Supplier Information</CardTitle>
+        <CardDescription>Every asset must have a verifiable professional supplier</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {hasValidationErrors && <ValidationErrorSummary errors={validationErrors} />}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="companyName" className="text-[#1A1A1A]">Supplier Name *</Label>
+            <Input
+              id="companyName"
+              value={formData.companyName}
+              onChange={(e) => updateFormData({ companyName: e.target.value })}
+              onBlur={() => handleBlur('companyName')}
+              placeholder="e.g., SolarTech Inc."
+              className={`border-[#D8D8D8] focus:ring-[#1B4FFF] ${touched.companyName && validationErrors.companyName ? 'border-red-500' : ''}`}
+            />
+            {touched.companyName && validationErrors.companyName && (
+              <p className="text-sm text-red-500">{validationErrors.companyName}</p>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="websiteUrl" className="text-[#1A1A1A]">Supplier Website *</Label>
+            <Input
+              id="websiteUrl"
+              type="url"
+              value={formData.websiteUrl}
+              onChange={(e) => updateFormData({ websiteUrl: e.target.value })}
+              onBlur={() => handleBlur('websiteUrl')}
+              placeholder="https://example.com/product"
+              className={`border-[#D8D8D8] focus:ring-[#1B4FFF] ${touched.websiteUrl && validationErrors.websiteUrl ? 'border-red-500' : ''}`}
+            />
+            {touched.websiteUrl && validationErrors.websiteUrl && (
+              <p className="text-sm text-red-500">{validationErrors.websiteUrl}</p>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="companyEmail" className="text-[#1A1A1A]">Supplier Email *</Label>
+            <Input
+              id="companyEmail"
+              type="email"
+              value={formData.companyEmail}
+              onChange={(e) => updateFormData({ companyEmail: e.target.value })}
+              onBlur={() => handleBlur('companyEmail')}
+              placeholder="contact@company.com"
+              className={`border-[#D8D8D8] focus:ring-[#1B4FFF] ${touched.companyEmail && validationErrors.companyEmail ? 'border-red-500' : ''}`}
+            />
+            {touched.companyEmail && validationErrors.companyEmail && (
+              <p className="text-sm text-red-500">{validationErrors.companyEmail}</p>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="companyPhone" className="text-[#1A1A1A]">Contact Phone (optional)</Label>
+            <Input
+              id="companyPhone"
+              type="tel"
+              value={formData.companyPhone}
+              onChange={(e) => updateFormData({ companyPhone: e.target.value })}
+              placeholder="+1 (555) 123-4567"
+              className="border-[#D8D8D8] focus:ring-[#1B4FFF]"
+            />
+          </div>
+        </div>
+
+        <p className="text-sm text-[#7A7A7A]">
+          AI will use the website URL (plus any documents you upload) to pre-fill technical details, specs, and impact fields.
+        </p>
+      </CardContent>
+    </Card>
+  );
+
+  // Step 3: Documentation
+  const renderStep3 = () => (
+    <Card className="bg-white rounded-xl shadow-sm">
+      <CardHeader>
+        <CardTitle className="text-xl text-[#1A1A1A]">Documentation & Photos</CardTitle>
+        <CardDescription>
+          Upload technical specs, CAD files, manuals, and product photos. AI will extract information from documents.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        {hasValidationErrors && <ValidationErrorSummary errors={validationErrors} />}
+        
+        {/* Product URL */}
+        <div className="space-y-2">
+          <Label htmlFor="externalDocUrl" className="text-[#1A1A1A]">Product URL (optional if uploading files)</Label>
+          <Input
+            id="externalDocUrl"
+            type="url"
+            value={formData.externalDocUrl}
+            onChange={(e) => updateFormData({ externalDocUrl: e.target.value })}
+            placeholder="https://example.com/product-page"
+            className="border-[#D8D8D8] focus:ring-[#1B4FFF]"
+          />
+          <p className="text-xs text-[#7A7A7A]">Link to product page - AI will extract specs and details from this URL</p>
+        </div>
+
+        {/* Document Upload Section */}
+        <div className="border border-[#D8D8D8] rounded-lg p-4 space-y-4">
+          <div>
+            <Label className="text-[#1A1A1A] font-semibold">Technical Documents</Label>
+            <p className="text-xs text-[#7A7A7A]">Upload spec sheets, CAD files, manuals (at least one document OR product URL required)</p>
+          </div>
+          
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex-1 space-y-2">
+              <Label htmlFor="docType" className="text-[#1A1A1A]">Document Type</Label>
+              <Select value={currentDocType} onValueChange={(v) => setCurrentDocType(v as UploadedFile['docType'])}>
+                <SelectTrigger className="border-[#D8D8D8]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(DOC_TYPE_LABELS).map(([value, label]) => (
+                    <SelectItem key={value} value={value}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-end">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => fileInputRef.current?.click()}
+                className="border-[#1B4FFF] text-[#1B4FFF]"
+              >
+                Select Documents
+              </Button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                onChange={handleFileSelect}
+                className="hidden"
+                accept=".pdf,.doc,.docx,.dwg,.dxf,.step,.stp,.iges,.igs,.stl,.obj"
+              />
+            </div>
+          </div>
+
+          {uploadedFiles.length > 0 && (
+            <div className="space-y-2">
+              <Label className="text-[#1A1A1A]">Selected Documents ({uploadedFiles.length})</Label>
+              <div className="border border-[#D8D8D8] rounded-lg divide-y divide-[#D8D8D8]">
+                {uploadedFiles.map((item, index) => (
+                  <div key={index} className="flex items-center justify-between p-3">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-[#1A1A1A] truncate">
+                        {item.file.name}
+                      </p>
+                      <p className="text-xs text-[#7A7A7A]">
+                        {DOC_TYPE_LABELS[item.docType]} - {(item.file.size / 1024 / 1024).toFixed(2)} MB
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removeFile(index)}
+                      className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {uploadedFiles.length === 0 && (
+            <div className="border-2 border-dashed border-[#D8D8D8] rounded-lg p-4 text-center">
+              <p className="text-[#7A7A7A] text-sm">
+                No documents selected. Upload technical specs, CAD files, or manuals.
+              </p>
+              <p className="text-xs text-[#7A7A7A] mt-1">
+                Supported: PDF, DOC, DWG, DXF, STEP, STL
+              </p>
+            </div>
+          )}
+
+          {touched.documentation && validationErrors.documentation && (
+            <p className="text-sm text-red-500">{validationErrors.documentation}</p>
+          )}
+        </div>
+
+        {/* Photo Upload Section - Separate from Documents */}
+        <div className="border border-[#D8D8D8] rounded-lg p-4 space-y-4">
+          <div>
+            <Label className="text-[#1A1A1A] font-semibold">Product Photos *</Label>
+            <p className="text-xs text-[#7A7A7A]">Upload at least one product photo (required)</p>
+          </div>
+          
+          <div className="flex items-center gap-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => photoInputRef.current?.click()}
+              className="border-[#1B4FFF] text-[#1B4FFF]"
+            >
+              Select Photos
+            </Button>
+            <input
+              ref={photoInputRef}
+              type="file"
+              multiple
+              onChange={handlePhotoSelect}
+              className="hidden"
+              accept=".jpg,.jpeg,.png,.gif,.webp"
+            />
+            <span className="text-xs text-[#7A7A7A]">JPG, PNG, GIF, WebP</span>
+          </div>
+
+          {uploadedPhotos.length > 0 && (
+            <div className="space-y-2">
+              <Label className="text-[#1A1A1A]">Selected Photos ({uploadedPhotos.length})</Label>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                {uploadedPhotos.map((photo, index) => (
+                  <div key={index} className="relative group">
+                    <img
+                      src={URL.createObjectURL(photo)}
+                      alt={photo.name}
+                      className="w-full h-24 object-cover rounded-lg border border-[#D8D8D8]"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removePhoto(index)}
+                      className="absolute top-1 right-1 h-6 w-6 p-0 bg-red-500 hover:bg-red-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      X
+                    </Button>
+                    <p className="text-xs text-[#7A7A7A] truncate mt-1">{photo.name}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {uploadedPhotos.length === 0 && (
+            <div className="border-2 border-dashed border-[#D8D8D8] rounded-lg p-4 text-center">
+              <p className="text-[#7A7A7A] text-sm">
+                No photos selected. Upload product images to showcase your asset.
+              </p>
+            </div>
+          )}
+
+          {touched.photos && validationErrors.photos && (
+            <p className="text-sm text-red-500">{validationErrors.photos}</p>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+
+  // Step 4: Review
+  // Step 4: Pricing
+  const renderStep4 = () => (
+    <Card className="bg-white rounded-xl shadow-sm">
+      <CardHeader>
+        <CardTitle className="text-xl text-[#1A1A1A]">Pricing</CardTitle>
+        <CardDescription>Set the retail price for this asset</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {hasValidationErrors && <ValidationErrorSummary errors={validationErrors} />}
+        <div className="space-y-2">
+          <Label htmlFor="retailPrice" className="text-[#1A1A1A]">Retail Price (USD) *</Label>
+          <Input
+            id="retailPrice"
+            type="number"
+            min="0"
+            step="0.01"
+            value={formData.retailPrice}
+            onChange={(e) => updateFormData({ retailPrice: e.target.value })}
+            onBlur={() => handleBlur('retailPrice')}
+            placeholder="0.00"
+            className={`border-[#D8D8D8] focus:ring-[#1B4FFF] ${touched.retailPrice && validationErrors.retailPrice ? 'border-red-500' : ''}`}
+          />
+          {touched.retailPrice && validationErrors.retailPrice && (
+            <p className="text-sm text-red-500">{validationErrors.retailPrice}</p>
+          )}
+          <p className="text-xs text-[#7A7A7A]">Enter the retail price in USD. Can be 0 for free assets.</p>
+        </div>
+
+        <p className="text-sm text-[#7A7A7A]">
+          Other pricing fields (wholesale price, minimum quantity, etc.) can be added later on the edit page.
+        </p>
+      </CardContent>
+    </Card>
+  );
+
+  // Step 5: Review
+  const renderStep5 = () => (
+    <Card className="bg-white rounded-xl shadow-sm">
+      <CardHeader>
+        <CardTitle className="text-xl text-[#1A1A1A]">Review Your Asset</CardTitle>
+        <CardDescription>Please review the information before submitting</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        {/* Basic Info Summary */}
+        <div className="space-y-2">
+          <h3 className="font-medium text-[#1A1A1A]">Basic Information</h3>
+          <div className="bg-gray-50 rounded-lg p-4 space-y-2">
+            <div className="flex justify-between">
+              <span className="text-[#7A7A7A]">Asset Name:</span>
+              <span className="font-medium">{formData.assetName || '-'}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-[#7A7A7A]">Asset Type:</span>
+              <span className="font-medium">{formatAssetType(formData.assetType)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-[#7A7A7A]">Categories:</span>
+              <span className="font-medium">
+                {formData.categories.length > 0 
+                  ? formData.categories.map(c => c.primary).join(', ')
+                  : '-'}
+              </span>
+            </div>
+            {formData.shortSummary && (
+              <div>
+                <span className="text-[#7A7A7A]">Summary:</span>
+                <p className="mt-1 text-sm">{formData.shortSummary}</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Supplier Info Summary */}
+        <div className="space-y-2">
+          <h3 className="font-medium text-[#1A1A1A]">Supplier Information</h3>
+          <div className="bg-gray-50 rounded-lg p-4 space-y-2">
+            <div className="flex justify-between">
+              <span className="text-[#7A7A7A]">Company:</span>
+              <span className="font-medium">{formData.companyName || '-'}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-[#7A7A7A]">Email:</span>
+              <span className="font-medium">{formData.companyEmail || '-'}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-[#7A7A7A]">Phone:</span>
+              <span className="font-medium">{formData.companyPhone || '-'}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-[#7A7A7A]">Website:</span>
+              <span className="font-medium truncate max-w-[200px]">{formData.websiteUrl || '-'}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Files Summary */}
+        <div className="space-y-2">
+          <h3 className="font-medium text-[#1A1A1A]">Documentation</h3>
+          <div className="bg-gray-50 rounded-lg p-4">
+            {uploadedFiles.length > 0 ? (
+              <ul className="space-y-1">
+                {uploadedFiles.map((item, index) => (
+                  <li key={index} className="text-sm">
+                    {item.file.name} ({DOC_TYPE_LABELS[item.docType]})
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-[#7A7A7A]">No files uploaded</p>
+            )}
+            {formData.externalDocUrl && (
+              <p className="text-sm mt-2">
+                <span className="text-[#7A7A7A]">External URL:</span> {formData.externalDocUrl}
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* Pricing Summary */}
+        <div className="space-y-2">
+          <h3 className="font-medium text-[#1A1A1A]">Pricing</h3>
+          <div className="bg-gray-50 rounded-lg p-4 space-y-2">
+            <div className="flex justify-between">
+              <span className="text-[#7A7A7A]">Retail Price (USD):</span>
+              <span className="font-medium">${formData.retailPrice || '0.00'}</span>
+            </div>
+          </div>
+        </div>
+
+        <p className="text-sm text-[#7A7A7A]">
+          After creating the asset, you can add more details on the edit page. 
+          Use "Extract with AI" to automatically fill in technical specifications from your documents and website.
+        </p>
+      </CardContent>
+    </Card>
+  );
+
+  return (
+    <div className="space-y-6 max-w-3xl mx-auto">
+      <div>
+        <h1 className="text-2xl font-semibold text-[#1A1A1A]">Add New Asset</h1>
+        <p className="text-[#7A7A7A] mt-1">
+          Enter the basics and upload any documents or a product URL. AI will help extract the detailed specifications later.
+        </p>
+      </div>
+
+      {/* Step Indicator */}
+      <StepIndicator />
+
+      {/* Auto-save indicator */}
+      <div className="text-sm text-[#7A7A7A] flex items-center gap-2">
+        <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+        Draft auto-saved
+      </div>
+
+      {/* Step Content */}
+      {currentStep === 1 && renderStep1()}
+      {currentStep === 2 && renderStep2()}
+      {currentStep === 3 && renderStep3()}
+      {currentStep === 4 && renderStep4()}
+      {currentStep === 5 && renderStep5()}
+
+      {/* Error display */}
+      {(submitError || uploadError) && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">
+          {submitError || uploadError}
+        </div>
+      )}
+
+      {/* Navigation Buttons */}
+      <div className="flex flex-col sm:flex-row justify-between gap-4">
+        <div className="flex gap-2">
           <Button
             type="button"
             variant="outline"
             onClick={() => navigate('/')}
-            className="border-[#1B4FFF] text-[#1B4FFF]"
+            className="border-[#D8D8D8] text-[#7A7A7A]"
+            disabled={isProcessing}
           >
             Cancel
           </Button>
-          <Button
-            type="submit"
-            disabled={createMutation.isPending || !assetName || !category}
-            className="bg-[#1B4FFF] hover:bg-[#0F2C8C] text-white"
-          >
-            {createMutation.isPending ? (
-              <>
-                <Spinner className="w-4 h-4 mr-2" />
-                Saving...
-              </>
-            ) : (
-              'Save Draft'
-            )}
-          </Button>
+          {currentStep > 1 && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleBack}
+              className="border-[#D8D8D8] text-[#1A1A1A]"
+              disabled={isProcessing}
+            >
+              Back
+            </Button>
+          )}
         </div>
-      </form>
+
+        <div className="flex gap-2">
+          {currentStep < 5 ? (
+            <Button
+              type="button"
+              onClick={handleNext}
+              className="bg-[#1B4FFF] hover:bg-[#0F2C8C] text-white"
+              disabled={isProcessing}
+            >
+              Next
+            </Button>
+          ) : (
+            <>
+              <Button
+                type="button"
+                onClick={handleSubmit}
+                disabled={isProcessing}
+                variant="outline"
+                className="border-[#1B4FFF] text-[#1B4FFF]"
+              >
+                {createMutation.isPending && !isExtracting ? (
+                  <>
+                    <Spinner className="w-4 h-4 mr-2" />
+                    Saving...
+                  </>
+                ) : (
+                  'Save Draft'
+                )}
+              </Button>
+              <Button
+                type="button"
+                onClick={handleExtractWithAI}
+                disabled={isProcessing}
+                className="bg-[#1B4FFF] hover:bg-[#0F2C8C] text-white"
+              >
+                {isExtracting ? (
+                  <>
+                    <Spinner className="w-4 h-4 mr-2" />
+                    {isUploading ? 'Uploading...' : 'Extracting...'}
+                  </>
+                ) : (
+                  'Extract with AI'
+                )}
+              </Button>
+            </>
+          )}
+        </div>
+      </div>
+
+      {currentStep === 5 && (
+        <p className="text-sm text-[#7A7A7A] text-center">
+          "Extract with AI" will create the asset, upload your files, and use AI to pre-fill detailed specifications.
+          You can review and edit all fields on the next page.
+        </p>
+      )}
+
+      {/* Suggest Category Modal */}
+      <SuggestCategoryModal
+        open={showSuggestModal}
+        onOpenChange={setShowSuggestModal}
+        primaryCategories={categoriesData?.categories.map(c => c.primary) || []}
+      />
     </div>
   );
 }
