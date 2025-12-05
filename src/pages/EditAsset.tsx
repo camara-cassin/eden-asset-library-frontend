@@ -498,13 +498,6 @@ export function EditAsset() {
         <div className="flex space-x-2">
           <Button
             variant="outline"
-            onClick={() => setShowAIModal(true)}
-            className="border-[#1B4FFF] text-[#1B4FFF]"
-          >
-            Run AI Prefill
-          </Button>
-          <Button
-            variant="outline"
             onClick={() => setShowFileModal(true)}
             className="border-[#1B4FFF] text-[#1B4FFF]"
           >

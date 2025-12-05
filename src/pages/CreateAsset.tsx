@@ -54,7 +54,6 @@ const DOC_TYPE_LABELS: Record<string, string> = {
   cad_files: 'CAD Files',
   engineering_drawings: 'Engineering Drawings',
   manuals: 'Manuals & Instructions',
-  images: 'Product Images',
   general: 'Other Documents',
 };
 
@@ -106,6 +105,7 @@ const getInitialFormData = (): FormData => {
 export function CreateAsset() {
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const photoInputRef = useRef<HTMLInputElement>(null);
 
   // Current step (1-4)
   const [currentStep, setCurrentStep] = useState(1);
@@ -115,6 +115,7 @@ export function CreateAsset() {
   
   // File upload state (not saved to localStorage - files can't be serialized)
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
+  const [uploadedPhotos, setUploadedPhotos] = useState<File[]>([]);
   const [currentDocType, setCurrentDocType] = useState<UploadedFile['docType']>('general');
   
   // Validation and UI state
@@ -219,14 +220,8 @@ export function CreateAsset() {
       errors.documentation = 'Please upload at least one file or provide an external documentation URL';
     }
     
-    // Require at least one photo (image file)
-    const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
-    const hasPhoto = uploadedFiles.some(f => {
-      const fileName = f.file.name.toLowerCase();
-      return imageExtensions.some(ext => fileName.endsWith(ext)) || f.docType === 'images';
-    });
-    
-    if (!hasPhoto) {
+    // Require at least one photo from the separate photo upload section
+    if (uploadedPhotos.length === 0) {
       errors.photos = 'Please upload at least one product photo';
     }
     
@@ -349,6 +344,22 @@ export function CreateAsset() {
 
   const removeFile = (index: number) => {
     setUploadedFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+    
+    setUploadedPhotos((prev) => [...prev, ...Array.from(files)]);
+    
+    // Reset file input
+    if (photoInputRef.current) {
+      photoInputRef.current.value = '';
+    }
+  };
+
+  const removePhoto = (index: number) => {
+    setUploadedPhotos((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleNext = () => {
@@ -496,7 +507,7 @@ export function CreateAsset() {
         throw new Error('Asset ID not returned');
       }
       
-      // Upload files if any
+      // Upload documents if any
       if (uploadedFiles.length > 0) {
         setIsUploading(true);
         const filesByType = uploadedFiles.reduce((acc, { file, docType }) => {
@@ -508,8 +519,15 @@ export function CreateAsset() {
         for (const [docType, files] of Object.entries(filesByType)) {
           await uploadFiles(assetId, files, docType as UploadedFile['docType']);
         }
-        setIsUploading(false);
       }
+      
+      // Upload photos if any
+      if (uploadedPhotos.length > 0) {
+        setIsUploading(true);
+        await uploadFiles(assetId, uploadedPhotos, 'images');
+      }
+      
+      setIsUploading(false);
       
       // Trigger AI extraction
       await extractMutation.mutateAsync(assetId);
@@ -776,116 +794,182 @@ export function CreateAsset() {
   const renderStep3 = () => (
     <Card className="bg-white rounded-xl shadow-sm">
       <CardHeader>
-        <CardTitle className="text-xl text-[#1A1A1A]">Documentation</CardTitle>
+        <CardTitle className="text-xl text-[#1A1A1A]">Documentation & Photos</CardTitle>
         <CardDescription>
-          Upload technical specs, CAD files, manuals, and product photos. AI will extract information from these.
+          Upload technical specs, CAD files, manuals, and product photos. AI will extract information from documents.
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-6">
         {hasValidationErrors && <ValidationErrorSummary errors={validationErrors} />}
-        {/* External Documentation URL */}
+        
+        {/* Product URL */}
         <div className="space-y-2">
-          <Label htmlFor="externalDocUrl" className="text-[#1A1A1A]">External Documentation URL (optional if uploading files)</Label>
+          <Label htmlFor="externalDocUrl" className="text-[#1A1A1A]">Product URL (optional if uploading files)</Label>
           <Input
             id="externalDocUrl"
             type="url"
             value={formData.externalDocUrl}
             onChange={(e) => updateFormData({ externalDocUrl: e.target.value })}
-            placeholder="https://example.com/product-specs.pdf"
+            placeholder="https://example.com/product-page"
             className="border-[#D8D8D8] focus:ring-[#1B4FFF]"
           />
-          <p className="text-xs text-[#7A7A7A]">Link to product documentation, spec sheets, or technical manuals</p>
+          <p className="text-xs text-[#7A7A7A]">Link to product page - AI will extract specs and details from this URL</p>
         </div>
 
-        {/* File Upload Section */}
-        <div className="space-y-2">
-          <Label className="text-[#1A1A1A]">Upload Files *</Label>
-          <p className="text-xs text-[#7A7A7A]">At least one file OR external URL required. At least one product photo required.</p>
-        </div>
-        
-        <div className="flex flex-col sm:flex-row gap-4">
-          <div className="flex-1 space-y-2">
-            <Label htmlFor="docType" className="text-[#1A1A1A]">Document Type</Label>
-            <Select value={currentDocType} onValueChange={(v) => setCurrentDocType(v as UploadedFile['docType'])}>
-              <SelectTrigger className="border-[#D8D8D8]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {Object.entries(DOC_TYPE_LABELS).map(([value, label]) => (
-                  <SelectItem key={value} value={value}>
-                    {label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+        {/* Document Upload Section */}
+        <div className="border border-[#D8D8D8] rounded-lg p-4 space-y-4">
+          <div>
+            <Label className="text-[#1A1A1A] font-semibold">Technical Documents</Label>
+            <p className="text-xs text-[#7A7A7A]">Upload spec sheets, CAD files, manuals (at least one document OR product URL required)</p>
           </div>
-          <div className="flex items-end">
+          
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex-1 space-y-2">
+              <Label htmlFor="docType" className="text-[#1A1A1A]">Document Type</Label>
+              <Select value={currentDocType} onValueChange={(v) => setCurrentDocType(v as UploadedFile['docType'])}>
+                <SelectTrigger className="border-[#D8D8D8]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(DOC_TYPE_LABELS).map(([value, label]) => (
+                    <SelectItem key={value} value={value}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-end">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => fileInputRef.current?.click()}
+                className="border-[#1B4FFF] text-[#1B4FFF]"
+              >
+                Select Documents
+              </Button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                onChange={handleFileSelect}
+                className="hidden"
+                accept=".pdf,.doc,.docx,.dwg,.dxf,.step,.stp,.iges,.igs,.stl,.obj"
+              />
+            </div>
+          </div>
+
+          {uploadedFiles.length > 0 && (
+            <div className="space-y-2">
+              <Label className="text-[#1A1A1A]">Selected Documents ({uploadedFiles.length})</Label>
+              <div className="border border-[#D8D8D8] rounded-lg divide-y divide-[#D8D8D8]">
+                {uploadedFiles.map((item, index) => (
+                  <div key={index} className="flex items-center justify-between p-3">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-[#1A1A1A] truncate">
+                        {item.file.name}
+                      </p>
+                      <p className="text-xs text-[#7A7A7A]">
+                        {DOC_TYPE_LABELS[item.docType]} - {(item.file.size / 1024 / 1024).toFixed(2)} MB
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removeFile(index)}
+                      className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {uploadedFiles.length === 0 && (
+            <div className="border-2 border-dashed border-[#D8D8D8] rounded-lg p-4 text-center">
+              <p className="text-[#7A7A7A] text-sm">
+                No documents selected. Upload technical specs, CAD files, or manuals.
+              </p>
+              <p className="text-xs text-[#7A7A7A] mt-1">
+                Supported: PDF, DOC, DWG, DXF, STEP, STL
+              </p>
+            </div>
+          )}
+
+          {touched.documentation && validationErrors.documentation && (
+            <p className="text-sm text-red-500">{validationErrors.documentation}</p>
+          )}
+        </div>
+
+        {/* Photo Upload Section - Separate from Documents */}
+        <div className="border border-[#D8D8D8] rounded-lg p-4 space-y-4">
+          <div>
+            <Label className="text-[#1A1A1A] font-semibold">Product Photos *</Label>
+            <p className="text-xs text-[#7A7A7A]">Upload at least one product photo (required)</p>
+          </div>
+          
+          <div className="flex items-center gap-4">
             <Button
               type="button"
               variant="outline"
-              onClick={() => fileInputRef.current?.click()}
+              onClick={() => photoInputRef.current?.click()}
               className="border-[#1B4FFF] text-[#1B4FFF]"
             >
-              Select Files
+              Select Photos
             </Button>
             <input
-              ref={fileInputRef}
+              ref={photoInputRef}
               type="file"
               multiple
-              onChange={handleFileSelect}
+              onChange={handlePhotoSelect}
               className="hidden"
-              accept=".pdf,.doc,.docx,.dwg,.dxf,.step,.stp,.iges,.igs,.stl,.obj,.jpg,.jpeg,.png,.gif,.webp"
+              accept=".jpg,.jpeg,.png,.gif,.webp"
             />
+            <span className="text-xs text-[#7A7A7A]">JPG, PNG, GIF, WebP</span>
           </div>
-        </div>
 
-        {uploadedFiles.length > 0 && (
-          <div className="space-y-2">
-            <Label className="text-[#1A1A1A]">Selected Files ({uploadedFiles.length})</Label>
-            <div className="border border-[#D8D8D8] rounded-lg divide-y divide-[#D8D8D8]">
-              {uploadedFiles.map((item, index) => (
-                <div key={index} className="flex items-center justify-between p-3">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-[#1A1A1A] truncate">
-                      {item.file.name}
-                    </p>
-                    <p className="text-xs text-[#7A7A7A]">
-                      {DOC_TYPE_LABELS[item.docType]} - {(item.file.size / 1024 / 1024).toFixed(2)} MB
-                    </p>
+          {uploadedPhotos.length > 0 && (
+            <div className="space-y-2">
+              <Label className="text-[#1A1A1A]">Selected Photos ({uploadedPhotos.length})</Label>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                {uploadedPhotos.map((photo, index) => (
+                  <div key={index} className="relative group">
+                    <img
+                      src={URL.createObjectURL(photo)}
+                      alt={photo.name}
+                      className="w-full h-24 object-cover rounded-lg border border-[#D8D8D8]"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removePhoto(index)}
+                      className="absolute top-1 right-1 h-6 w-6 p-0 bg-red-500 hover:bg-red-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      X
+                    </Button>
+                    <p className="text-xs text-[#7A7A7A] truncate mt-1">{photo.name}</p>
                   </div>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => removeFile(index)}
-                    className="text-red-500 hover:text-red-700 hover:bg-red-50"
-                  >
-                    Remove
-                  </Button>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {uploadedFiles.length === 0 && (
-          <div className="border-2 border-dashed border-[#D8D8D8] rounded-lg p-8 text-center">
-            <p className="text-[#7A7A7A]">
-              No files selected. Upload technical specs, CAD files, manuals, or images.
-            </p>
-            <p className="text-sm text-[#7A7A7A] mt-1">
-              Supported: PDF, DOC, DWG, DXF, STEP, STL, JPG, PNG
-            </p>
-          </div>
-        )}
+          {uploadedPhotos.length === 0 && (
+            <div className="border-2 border-dashed border-[#D8D8D8] rounded-lg p-4 text-center">
+              <p className="text-[#7A7A7A] text-sm">
+                No photos selected. Upload product images to showcase your asset.
+              </p>
+            </div>
+          )}
 
-        {/* Validation Errors */}
-        {touched.documentation && validationErrors.documentation && (
-          <p className="text-sm text-red-500">{validationErrors.documentation}</p>
-        )}
-        {touched.photos && validationErrors.photos && (
-          <p className="text-sm text-red-500">{validationErrors.photos}</p>
-        )}
+          {touched.photos && validationErrors.photos && (
+            <p className="text-sm text-red-500">{validationErrors.photos}</p>
+          )}
+        </div>
       </CardContent>
     </Card>
   );
