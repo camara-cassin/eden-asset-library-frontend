@@ -280,6 +280,8 @@ export function EditAsset() {
           use_uploaded_docs: useUploadedDocs,
           extra_doc_urls: extraDocUrls ? extraDocUrls.split('\n').filter(Boolean) : undefined,
         },
+        // Include product URL for AI to scrape
+        website_url: formData.basic_information?.original_source_url || undefined,
       }),
     onSuccess: (data) => {
       setShowAIModal(false);
@@ -749,10 +751,29 @@ export function EditAsset() {
 
                     {/* Long Description (AI-generated, read-only) */}
                     <div className="space-y-2">
-                      <Label className="text-[#1A1A1A]">
-                        Long Description
-                        <span className="ml-2 text-xs text-[#7A7A7A] font-normal">(AI-generated)</span>
-                      </Label>
+                      <div className="flex items-center justify-between">
+                        <Label className="text-[#1A1A1A]">
+                          Long Description
+                          <span className="ml-2 text-xs text-[#7A7A7A] font-normal">(AI-generated)</span>
+                        </Label>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setShowAIModal(true)}
+                          disabled={aiExtractMutation.isPending}
+                          className="border-[#1B4FFF] text-[#1B4FFF] hover:bg-[#1B4FFF]/10"
+                        >
+                          {aiExtractMutation.isPending ? (
+                            <>
+                              <Spinner className="w-4 h-4 mr-2" />
+                              Running...
+                            </>
+                          ) : (
+                            'Run AI Extraction'
+                          )}
+                        </Button>
+                      </div>
                       {formData.basic_information?.long_description ? (
                         <div className="p-4 bg-gray-50 border border-[#D8D8D8] rounded-md">
                           <p className="text-[#1A1A1A] whitespace-pre-wrap">
@@ -761,7 +782,7 @@ export function EditAsset() {
                         </div>
                       ) : (
                         <div className="p-4 bg-gray-50 border border-[#D8D8D8] rounded-md text-[#7A7A7A] italic">
-                          No AI-generated description yet. Click "AI Prefill from Docs" to generate.
+                          No AI-generated description yet. Click "Run AI Extraction" to generate from your product URL and uploaded documents.
                         </div>
                       )}
                     </div>
