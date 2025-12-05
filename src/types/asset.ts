@@ -402,6 +402,11 @@ export interface AssetListItem {
   deployment?: Deployment;
   system_meta?: SystemMeta;
   contributor?: Contributor;
+  // Metadata fields from database columns
+  created_by?: string;
+  created_at?: string;
+  updated_by?: string;
+  updated_at?: string;
 }
 
 export interface PaginatedResponse<T> {
