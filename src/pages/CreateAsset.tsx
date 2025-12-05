@@ -15,19 +15,27 @@ import type { AssetType, ScalingPotential } from '../types/asset';
 export function CreateAsset() {
   const navigate = useNavigate();
 
-  // Form state
+  // Basic Information state
   const [assetType, setAssetType] = useState<AssetType>('physical');
   const [assetName, setAssetName] = useState('');
   const [category, setCategory] = useState('');
   const [subcategory, setSubcategory] = useState('');
   const [shortSummary, setShortSummary] = useState('');
+  const [functionPurpose, setFunctionPurpose] = useState('');
   const [scalingPotential, setScalingPotential] = useState<ScalingPotential | ''>('');
+
+  // Supplier/Creator state (conditional based on asset_type)
+  const [companyName, setCompanyName] = useState('');
+  const [companyEmail, setCompanyEmail] = useState('');
+  const [companyWebsiteUrl, setCompanyWebsiteUrl] = useState('');
+  const [originalSourceUrl, setOriginalSourceUrl] = useState('');
+  const [creatorName, setCreatorName] = useState('');
+  const [creatorEmail, setCreatorEmail] = useState('');
+  const [creatorOrganization, setCreatorOrganization] = useState('');
+
+  // Contributor state (simplified for MVP)
   const [contributorName, setContributorName] = useState('');
   const [contributorEmail, setContributorEmail] = useState('');
-  const [contributorId, setContributorId] = useState('');
-  const [contributorNotes, setContributorNotes] = useState('');
-  const [assetTypeDescription, setAssetTypeDescription] = useState('');
-  const [intendedUseCases, setIntendedUseCases] = useState('');
 
   // Fetch reference data
   const { data: assetTypes } = useQuery({
@@ -59,29 +67,53 @@ export function CreateAsset() {
     },
   });
 
+  // Check if supplier fields are required (physical or hybrid)
+  const isPhysicalOrHybrid = assetType === 'physical' || assetType === 'hybrid';
+  const isPlan = assetType === 'plan';
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    const basicInfo: Record<string, string | undefined> = {
+      asset_name: assetName,
+      category,
+      subcategory: subcategory || undefined,
+      short_summary: shortSummary || undefined,
+      function_purpose: functionPurpose || undefined,
+      scaling_potential: scalingPotential || undefined,
+    };
+
+    // Add supplier fields for physical/hybrid
+    if (isPhysicalOrHybrid) {
+      basicInfo.company_name = companyName || undefined;
+      basicInfo.company_email = companyEmail || undefined;
+      basicInfo.company_website_url = companyWebsiteUrl || undefined;
+      basicInfo.original_source_url = originalSourceUrl || undefined;
+    }
+
+    // Add creator fields for plan
+    if (isPlan) {
+      basicInfo.creator_name = creatorName || undefined;
+      basicInfo.creator_email = creatorEmail || undefined;
+      basicInfo.creator_organization = creatorOrganization || undefined;
+      basicInfo.original_source_url = originalSourceUrl || undefined;
+    }
+
     createMutation.mutate({
       asset_type: assetType,
-      basic_information: {
-        asset_name: assetName,
-        category,
-        subcategory: subcategory || undefined,
-        short_summary: shortSummary || undefined,
-        scaling_potential: scalingPotential || undefined,
-      },
+      basic_information: basicInfo as Parameters<typeof createAsset>[0]['basic_information'],
       contributor: {
         name: contributorName || undefined,
         email: contributorEmail || undefined,
-        contributor_id: contributorId || undefined,
-        notes: contributorNotes || undefined,
-      },
-      overview: {
-        asset_type_description: assetTypeDescription || undefined,
-        intended_use_cases: intendedUseCases ? intendedUseCases.split('\n').filter(Boolean) : undefined,
       },
     });
   };
+
+  // Validation for submit button
+  const isBasicInfoValid = assetName && category && subcategory && shortSummary;
+  const isSupplierValid = !isPhysicalOrHybrid || (companyName && companyEmail && companyWebsiteUrl && originalSourceUrl);
+  const isCreatorValid = !isPlan || (creatorName && creatorEmail);
+  const canSubmit = isBasicInfoValid && isSupplierValid && isCreatorValid;
 
   return (
     <div className="space-y-6">
@@ -140,7 +172,7 @@ export function CreateAsset() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="subcategory" className="text-[#1A1A1A]">Subcategory</Label>
+                <Label htmlFor="subcategory" className="text-[#1A1A1A]">Subcategory *</Label>
                 <Select value={subcategory} onValueChange={setSubcategory} disabled={!category}>
                   <SelectTrigger className="border-[#D8D8D8]">
                     <SelectValue placeholder="Select subcategory" />
@@ -173,68 +205,25 @@ export function CreateAsset() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="shortSummary" className="text-[#1A1A1A]">Short Summary</Label>
+              <Label htmlFor="shortSummary" className="text-[#1A1A1A]">Short Summary *</Label>
               <Textarea
                 id="shortSummary"
                 value={shortSummary}
                 onChange={(e) => setShortSummary(e.target.value)}
-                placeholder="Brief description of the asset"
+                placeholder="Brief description of the asset (single short paragraph)"
                 rows={3}
+                required
                 className="border-[#D8D8D8] focus:ring-[#1B4FFF]"
               />
             </div>
-          </CardContent>
-        </Card>
-
-        {/* Contributor */}
-        <Card className="bg-white rounded-xl shadow-sm">
-          <CardHeader>
-            <CardTitle className="text-xl text-[#1A1A1A]">Contributor</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="contributorName" className="text-[#1A1A1A]">Name</Label>
-                <Input
-                  id="contributorName"
-                  value={contributorName}
-                  onChange={(e) => setContributorName(e.target.value)}
-                  placeholder="Contributor name"
-                  className="border-[#D8D8D8] focus:ring-[#1B4FFF]"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="contributorEmail" className="text-[#1A1A1A]">Email</Label>
-                <Input
-                  id="contributorEmail"
-                  type="email"
-                  value={contributorEmail}
-                  onChange={(e) => setContributorEmail(e.target.value)}
-                  placeholder="contributor@example.com"
-                  className="border-[#D8D8D8] focus:ring-[#1B4FFF]"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="contributorId" className="text-[#1A1A1A]">Contributor ID</Label>
-                <Input
-                  id="contributorId"
-                  value={contributorId}
-                  onChange={(e) => setContributorId(e.target.value)}
-                  placeholder="user_123"
-                  className="border-[#D8D8D8] focus:ring-[#1B4FFF]"
-                />
-              </div>
-            </div>
 
             <div className="space-y-2">
-              <Label htmlFor="contributorNotes" className="text-[#1A1A1A]">Notes</Label>
+              <Label htmlFor="functionPurpose" className="text-[#1A1A1A]">Function or Purpose</Label>
               <Textarea
-                id="contributorNotes"
-                value={contributorNotes}
-                onChange={(e) => setContributorNotes(e.target.value)}
-                placeholder="Additional notes"
+                id="functionPurpose"
+                value={functionPurpose}
+                onChange={(e) => setFunctionPurpose(e.target.value)}
+                placeholder="What does this asset do? (optional)"
                 rows={2}
                 className="border-[#D8D8D8] focus:ring-[#1B4FFF]"
               />
@@ -242,36 +231,158 @@ export function CreateAsset() {
           </CardContent>
         </Card>
 
-        {/* Overview */}
+        {/* Supplier / Creator (conditional based on asset_type) */}
         <Card className="bg-white rounded-xl shadow-sm">
           <CardHeader>
-            <CardTitle className="text-xl text-[#1A1A1A]">Overview</CardTitle>
+            <CardTitle className="text-xl text-[#1A1A1A]">
+              {isPlan ? 'Creator Information' : 'Supplier Information'}
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="assetTypeDescription" className="text-[#1A1A1A]">Asset Type Description</Label>
-              <Textarea
-                id="assetTypeDescription"
-                value={assetTypeDescription}
-                onChange={(e) => setAssetTypeDescription(e.target.value)}
-                placeholder="Describe the type of asset"
-                rows={3}
-                className="border-[#D8D8D8] focus:ring-[#1B4FFF]"
-              />
-            </div>
+            {isPhysicalOrHybrid && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="companyName" className="text-[#1A1A1A]">Company Name *</Label>
+                  <Input
+                    id="companyName"
+                    value={companyName}
+                    onChange={(e) => setCompanyName(e.target.value)}
+                    placeholder="Enter company name"
+                    required
+                    className="border-[#D8D8D8] focus:ring-[#1B4FFF]"
+                  />
+                </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="intendedUseCases" className="text-[#1A1A1A]">Intended Use Cases</Label>
-              <Textarea
-                id="intendedUseCases"
-                value={intendedUseCases}
-                onChange={(e) => setIntendedUseCases(e.target.value)}
-                placeholder="Enter each use case on a new line"
-                rows={4}
-                className="border-[#D8D8D8] focus:ring-[#1B4FFF]"
-              />
-              <p className="text-sm text-[#7A7A7A]">Enter each use case on a separate line</p>
+                <div className="space-y-2">
+                  <Label htmlFor="companyEmail" className="text-[#1A1A1A]">Company Email *</Label>
+                  <Input
+                    id="companyEmail"
+                    type="email"
+                    value={companyEmail}
+                    onChange={(e) => setCompanyEmail(e.target.value)}
+                    placeholder="company@example.com"
+                    required
+                    className="border-[#D8D8D8] focus:ring-[#1B4FFF]"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="companyWebsiteUrl" className="text-[#1A1A1A]">Company Website URL *</Label>
+                  <Input
+                    id="companyWebsiteUrl"
+                    type="url"
+                    value={companyWebsiteUrl}
+                    onChange={(e) => setCompanyWebsiteUrl(e.target.value)}
+                    placeholder="https://company.com"
+                    required
+                    className="border-[#D8D8D8] focus:ring-[#1B4FFF]"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="originalSourceUrl" className="text-[#1A1A1A]">Product URL *</Label>
+                  <Input
+                    id="originalSourceUrl"
+                    type="url"
+                    value={originalSourceUrl}
+                    onChange={(e) => setOriginalSourceUrl(e.target.value)}
+                    placeholder="https://company.com/product"
+                    required
+                    className="border-[#D8D8D8] focus:ring-[#1B4FFF]"
+                  />
+                  <p className="text-sm text-[#7A7A7A]">Main URL used by AI and humans to learn more about this product</p>
+                </div>
+              </div>
+            )}
+
+            {isPlan && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="creatorName" className="text-[#1A1A1A]">Creator Name *</Label>
+                  <Input
+                    id="creatorName"
+                    value={creatorName}
+                    onChange={(e) => setCreatorName(e.target.value)}
+                    placeholder="Enter creator name"
+                    required
+                    className="border-[#D8D8D8] focus:ring-[#1B4FFF]"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="creatorEmail" className="text-[#1A1A1A]">Creator Email *</Label>
+                  <Input
+                    id="creatorEmail"
+                    type="email"
+                    value={creatorEmail}
+                    onChange={(e) => setCreatorEmail(e.target.value)}
+                    placeholder="creator@example.com"
+                    required
+                    className="border-[#D8D8D8] focus:ring-[#1B4FFF]"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="creatorOrganization" className="text-[#1A1A1A]">Organization</Label>
+                  <Input
+                    id="creatorOrganization"
+                    value={creatorOrganization}
+                    onChange={(e) => setCreatorOrganization(e.target.value)}
+                    placeholder="Organization name (optional)"
+                    className="border-[#D8D8D8] focus:ring-[#1B4FFF]"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="originalSourceUrlPlan" className="text-[#1A1A1A]">Original Source URL</Label>
+                  <Input
+                    id="originalSourceUrlPlan"
+                    type="url"
+                    value={originalSourceUrl}
+                    onChange={(e) => setOriginalSourceUrl(e.target.value)}
+                    placeholder="https://example.com/plan"
+                    className="border-[#D8D8D8] focus:ring-[#1B4FFF]"
+                  />
+                  <p className="text-sm text-[#7A7A7A]">Optional but encouraged</p>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Contributor (simplified for MVP) */}
+        <Card className="bg-white rounded-xl shadow-sm">
+          <CardHeader>
+            <CardTitle className="text-xl text-[#1A1A1A]">Contributor</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="contributorName" className="text-[#1A1A1A]">Your Name</Label>
+                <Input
+                  id="contributorName"
+                  value={contributorName}
+                  onChange={(e) => setContributorName(e.target.value)}
+                  placeholder="Your name"
+                  className="border-[#D8D8D8] focus:ring-[#1B4FFF]"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="contributorEmail" className="text-[#1A1A1A]">Your Email</Label>
+                <Input
+                  id="contributorEmail"
+                  type="email"
+                  value={contributorEmail}
+                  onChange={(e) => setContributorEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  className="border-[#D8D8D8] focus:ring-[#1B4FFF]"
+                />
+              </div>
             </div>
+            <p className="text-sm text-[#7A7A7A]">
+              This identifies you as the person submitting this asset to the library.
+            </p>
           </CardContent>
         </Card>
 
@@ -294,16 +405,16 @@ export function CreateAsset() {
           </Button>
           <Button
             type="submit"
-            disabled={createMutation.isPending || !assetName || !category}
+            disabled={createMutation.isPending || !canSubmit}
             className="bg-[#1B4FFF] hover:bg-[#0F2C8C] text-white"
           >
             {createMutation.isPending ? (
               <>
                 <Spinner className="w-4 h-4 mr-2" />
-                Saving...
+                Creating...
               </>
             ) : (
-              'Save Draft'
+              'Create Asset'
             )}
           </Button>
         </div>

@@ -83,8 +83,15 @@ export interface Contributor {
   agreement_document_url?: string;
 }
 
+export interface AssetImage {
+  url: string;
+  caption?: string;
+  is_primary?: boolean;
+}
+
 export interface Overview {
   photos?: string[];
+  images?: AssetImage[];
   key_features?: string[];
   intended_use_cases?: string[];
   asset_type_description?: string;
@@ -165,13 +172,21 @@ export interface FunctionalIO {
   outputs?: FunctionalIOItem[];
 }
 
+export type AvailabilityType = 'for_sale' | 'licensed' | 'open_source' | 'proprietary' | 'not_available';
+export type GeneratesRevenue = 'yes' | 'no' | 'maybe';
+
 export interface Economics {
   retail_price?: number;
+  wholesale_price?: number;
+  minimum_wholesale_quantity?: number;
   currency?: string;
   price_notes?: string;
   estimated_lifespan_years?: number;
   maintenance_cost_annual?: number;
   roi_notes?: string;
+  availability_type?: AvailabilityType;
+  generates_revenue?: GeneratesRevenue;
+  estimated_annual_net_profit_usd?: number;
 }
 
 export interface Deployment {

@@ -32,8 +32,30 @@ export function PublicAssetDetails() {
     );
   }
 
+  // Find primary image
+  const primaryImage = asset.overview?.images?.find(img => img.is_primary) || asset.overview?.images?.[0];
+  const otherImages = asset.overview?.images?.filter(img => img !== primaryImage) || [];
+  
+  // Check asset type for conditional rendering
+  const isPhysicalOrHybrid = asset.asset_type === 'physical' || asset.asset_type === 'hybrid';
+  const isPlan = asset.asset_type === 'plan';
+
   return (
     <div className="space-y-6">
+      {/* Primary Image */}
+      {primaryImage && (
+        <div className="w-full">
+          <img
+            src={primaryImage.url}
+            alt={primaryImage.caption || asset.basic_information?.asset_name || 'Asset image'}
+            className="w-full max-h-96 object-cover rounded-xl shadow-sm"
+          />
+          {primaryImage.caption && (
+            <p className="text-sm text-[#7A7A7A] mt-2 text-center">{primaryImage.caption}</p>
+          )}
+        </div>
+      )}
+
       {/* Header */}
       <div>
         <h1 className="text-2xl font-semibold text-[#1A1A1A]">
@@ -44,6 +66,20 @@ export function PublicAssetDetails() {
           <Badge className="bg-green-100 text-green-700">Approved</Badge>
         </div>
       </div>
+
+      {/* Image Gallery (if multiple images) */}
+      {otherImages.length > 0 && (
+        <div className="grid grid-cols-4 gap-2">
+          {otherImages.map((img, index) => (
+            <img
+              key={index}
+              src={img.url}
+              alt={img.caption || `Image ${index + 2}`}
+              className="w-full h-24 object-cover rounded-lg"
+            />
+          ))}
+        </div>
+      )}
 
       {/* Tabs */}
       <Tabs defaultValue="summary" className="space-y-4">
@@ -85,6 +121,123 @@ export function PublicAssetDetails() {
                   <p className="text-[#1A1A1A]">{asset.basic_information.long_description}</p>
                 </div>
               )}
+            </CardContent>
+          </Card>
+
+          {/* Supplier / Creator Section */}
+          <Card className="bg-white rounded-xl shadow-sm">
+            <CardHeader>
+              <CardTitle className="text-xl text-[#1A1A1A]">
+                {isPlan ? 'Creator' : 'Supplier'}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {isPhysicalOrHybrid && (
+                <div className="space-y-3">
+                  {asset.basic_information?.company_name && (
+                    <div>
+                      <p className="text-sm text-[#7A7A7A]">Company</p>
+                      <p className="text-[#1A1A1A]">{asset.basic_information.company_name}</p>
+                    </div>
+                  )}
+                  {asset.basic_information?.company_website_url && (
+                    <div>
+                      <p className="text-sm text-[#7A7A7A]">Website</p>
+                      <a
+                        href={asset.basic_information.company_website_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[#1B4FFF] hover:underline"
+                      >
+                        {asset.basic_information.company_website_url}
+                      </a>
+                    </div>
+                  )}
+                  {asset.basic_information?.original_source_url && (
+                    <div>
+                      <p className="text-sm text-[#7A7A7A]">Product URL</p>
+                      <a
+                        href={asset.basic_information.original_source_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[#1B4FFF] hover:underline"
+                      >
+                        {asset.basic_information.original_source_url}
+                      </a>
+                    </div>
+                  )}
+                </div>
+              )}
+              {isPlan && (
+                <div className="space-y-3">
+                  {asset.basic_information?.creator_name && (
+                    <div>
+                      <p className="text-sm text-[#7A7A7A]">Creator</p>
+                      <p className="text-[#1A1A1A]">{asset.basic_information.creator_name}</p>
+                    </div>
+                  )}
+                  {asset.basic_information?.creator_organization && (
+                    <div>
+                      <p className="text-sm text-[#7A7A7A]">Organization</p>
+                      <p className="text-[#1A1A1A]">{asset.basic_information.creator_organization}</p>
+                    </div>
+                  )}
+                  {asset.basic_information?.original_source_url && (
+                    <div>
+                      <p className="text-sm text-[#7A7A7A]">Source URL</p>
+                      <a
+                        href={asset.basic_information.original_source_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[#1B4FFF] hover:underline"
+                      >
+                        {asset.basic_information.original_source_url}
+                      </a>
+                    </div>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Economics Section */}
+          <Card className="bg-white rounded-xl shadow-sm">
+            <CardHeader>
+              <CardTitle className="text-xl text-[#1A1A1A]">Pricing & Economics</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 gap-4">
+                {asset.economics?.retail_price !== undefined && (
+                  <div>
+                    <p className="text-sm text-[#7A7A7A]">Retail Price</p>
+                    <p className="text-xl font-semibold text-[#1A1A1A]">
+                      ${asset.economics.retail_price.toLocaleString()}
+                    </p>
+                  </div>
+                )}
+                {asset.economics?.availability_type && (
+                  <div>
+                    <p className="text-sm text-[#7A7A7A]">Availability</p>
+                    <Badge className="capitalize bg-[#E6EEFF] text-[#1B4FFF]">
+                      {asset.economics.availability_type.replace(/_/g, ' ')}
+                    </Badge>
+                  </div>
+                )}
+                {asset.economics?.generates_revenue && (
+                  <div>
+                    <p className="text-sm text-[#7A7A7A]">Generates Revenue</p>
+                    <p className="text-[#1A1A1A] capitalize">{asset.economics.generates_revenue}</p>
+                  </div>
+                )}
+                {asset.economics?.estimated_annual_net_profit_usd !== undefined && (
+                  <div>
+                    <p className="text-sm text-[#7A7A7A]">Est. Annual Net Profit</p>
+                    <p className="text-[#1A1A1A]">
+                      ${asset.economics.estimated_annual_net_profit_usd.toLocaleString()}
+                    </p>
+                  </div>
+                )}
+              </div>
             </CardContent>
           </Card>
 
