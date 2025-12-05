@@ -18,6 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { createSuggestion } from '@/api/category-suggestions';
 
 interface SuggestCategoryModalProps {
   open: boolean;
@@ -25,70 +26,59 @@ interface SuggestCategoryModalProps {
   primaryCategories: string[];
 }
 
-interface CategorySuggestion {
-  type: 'primary' | 'subcategory';
-  parentCategory?: string;
-  suggestedName: string;
-  reason: string;
-  submitterEmail?: string;
-}
-
 export function SuggestCategoryModal({
   open,
   onOpenChange,
   primaryCategories,
 }: SuggestCategoryModalProps) {
-  const [suggestionType, setSuggestionType] = useState<'primary' | 'subcategory'>('subcategory');
+  const [suggestionType, setSuggestionType] = useState<'primary_category' | 'subcategory'>('subcategory');
   const [parentCategory, setParentCategory] = useState<string>('');
   const [suggestedName, setSuggestedName] = useState('');
   const [reason, setReason] = useState('');
-  const [submitterEmail, setSubmitterEmail] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async () => {
     if (!suggestedName.trim() || !reason.trim()) return;
     if (suggestionType === 'subcategory' && !parentCategory) return;
+    if (suggestedName.trim().length < 3) {
+      setError('Name must be at least 3 characters');
+      return;
+    }
+    if (reason.trim().length < 10) {
+      setError('Reason must be at least 10 characters');
+      return;
+    }
 
     setSubmitting(true);
+    setError(null);
 
-    const suggestion: CategorySuggestion = {
-      type: suggestionType,
-      parentCategory: suggestionType === 'subcategory' ? parentCategory : undefined,
-      suggestedName: suggestedName.trim(),
-      reason: reason.trim(),
-      submitterEmail: submitterEmail.trim() || undefined,
-    };
-
-    // For now, store in localStorage as a simple solution
-    // In production, this would be sent to a backend endpoint
     try {
-      const existingSuggestions = JSON.parse(localStorage.getItem('categorySuggestions') || '[]');
-      existingSuggestions.push({
-        ...suggestion,
-        submittedAt: new Date().toISOString(),
+      await createSuggestion({
+        suggestion_type: suggestionType,
+        primary_category: suggestionType === 'subcategory' ? parentCategory : undefined,
+        suggested_name: suggestedName.trim(),
+        reason: reason.trim(),
       });
-      localStorage.setItem('categorySuggestions', JSON.stringify(existingSuggestions));
-      
-      // TODO: In production, send to backend API
-      // await post('/api/v1/reference/category-suggestions', suggestion);
       
       setSubmitted(true);
-    } catch (error) {
-      console.error('Failed to submit suggestion:', error);
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to submit suggestion';
+      const axiosError = err as { response?: { data?: { detail?: string } } };
+      setError(axiosError.response?.data?.detail || errorMessage);
     } finally {
       setSubmitting(false);
     }
   };
 
   const handleClose = () => {
-    // Reset form
     setSuggestionType('subcategory');
     setParentCategory('');
     setSuggestedName('');
     setReason('');
-    setSubmitterEmail('');
     setSubmitted(false);
+    setError(null);
     onOpenChange(false);
   };
 
@@ -105,11 +95,12 @@ export function SuggestCategoryModal({
 
         {submitted ? (
           <div className="py-6 text-center">
+            <div className="text-green-600 text-5xl mb-4">&#10003;</div>
             <div className="text-green-600 text-lg font-medium mb-2">
-              Thank you for your suggestion!
+              Suggestion Submitted!
             </div>
             <p className="text-sm text-gray-500">
-              Our team will review your suggestion and may add it to our category list.
+              Your suggestion "{suggestedName}" has been sent to the EDEN admin team for review.
             </p>
             <Button className="mt-4" onClick={handleClose}>
               Close
@@ -122,14 +113,14 @@ export function SuggestCategoryModal({
                 <Label htmlFor="suggestion-type">What would you like to suggest?</Label>
                 <Select
                   value={suggestionType}
-                  onValueChange={(value: 'primary' | 'subcategory') => setSuggestionType(value)}
+                  onValueChange={(value: 'primary_category' | 'subcategory') => setSuggestionType(value)}
                 >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="subcategory">New Subcategory</SelectItem>
-                    <SelectItem value="primary">New Primary Category</SelectItem>
+                    <SelectItem value="primary_category">New Primary Category</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -154,46 +145,47 @@ export function SuggestCategoryModal({
 
               <div className="grid gap-2">
                 <Label htmlFor="suggested-name">
-                  Suggested {suggestionType === 'primary' ? 'Category' : 'Subcategory'} Name
+                  {suggestionType === 'primary_category' ? 'Category' : 'Subcategory'} Name *
                 </Label>
                 <Input
                   id="suggested-name"
                   value={suggestedName}
                   onChange={(e) => setSuggestedName(e.target.value)}
-                  placeholder={suggestionType === 'primary' ? 'e.g., Education and Learning' : 'e.g., Solar Cookers'}
+                  placeholder={suggestionType === 'primary_category' ? 'e.g., Community Governance Systems' : 'e.g., Tidal Energy Systems'}
+                  minLength={3}
+                  maxLength={100}
                 />
+                <p className="text-xs text-gray-500">3-100 characters</p>
               </div>
 
               <div className="grid gap-2">
-                <Label htmlFor="reason">Why should we add this?</Label>
+                <Label htmlFor="reason">Why is this {suggestionType === 'primary_category' ? 'category' : 'subcategory'} needed? *</Label>
                 <Textarea
                   id="reason"
                   value={reason}
                   onChange={(e) => setReason(e.target.value)}
-                  placeholder="Explain why this category would be useful and what types of assets it would include..."
-                  rows={3}
+                  placeholder="Explain why this addition would be valuable to the EDEN ecosystem..."
+                  rows={4}
+                  minLength={10}
+                  maxLength={500}
                 />
+                <p className="text-xs text-gray-500">{reason.length}/500 characters (minimum 10)</p>
               </div>
 
-              <div className="grid gap-2">
-                <Label htmlFor="email">Your Email (optional)</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={submitterEmail}
-                  onChange={(e) => setSubmitterEmail(e.target.value)}
-                  placeholder="We'll notify you if your suggestion is approved"
-                />
-              </div>
+              {error && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded text-red-700 text-sm">
+                  {error}
+                </div>
+              )}
             </div>
 
             <DialogFooter>
-              <Button variant="outline" onClick={handleClose}>
+              <Button variant="outline" onClick={handleClose} disabled={submitting}>
                 Cancel
               </Button>
               <Button 
                 onClick={handleSubmit} 
-                disabled={submitting || !suggestedName.trim() || !reason.trim() || (suggestionType === 'subcategory' && !parentCategory)}
+                disabled={submitting || suggestedName.trim().length < 3 || reason.trim().length < 10 || (suggestionType === 'subcategory' && !parentCategory)}
               >
                 {submitting ? 'Submitting...' : 'Submit Suggestion'}
               </Button>

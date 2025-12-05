@@ -10,11 +10,17 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Spinner } from '@/components/ui/spinner';
+import { CategorySuggestionsSection } from '@/components/CategorySuggestionsSection';
+import { useAuth } from '@/contexts/AuthContext';
 import type { AssetStatus, AssetType } from '../types/asset';
 
 type FilterTab = 'all' | 'drafts' | 'submitted' | 'approved';
+type MainTab = 'assets' | 'suggestions';
 
 export function Dashboard() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
+  const [mainTab, setMainTab] = useState<MainTab>('assets');
   const [activeTab, setActiveTab] = useState<FilterTab>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('');
@@ -109,22 +115,53 @@ export function Dashboard() {
         </Link>
       </div>
 
-      {/* Filter Tabs */}
-      <div className="flex space-x-2">
-        {tabs.map((tab) => (
+      {/* Main Tabs for Admin */}
+      {isAdmin && (
+        <div className="flex space-x-4 border-b border-gray-200">
           <button
-            key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
-            className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-              activeTab === tab.key
-                ? 'bg-[#1B4FFF] text-white'
-                : 'bg-white text-[#4A4A4A] hover:bg-[#E6EEFF]'
+            onClick={() => setMainTab('assets')}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+              mainTab === 'assets'
+                ? 'border-[#1B4FFF] text-[#1B4FFF]'
+                : 'border-transparent text-[#4A4A4A] hover:text-[#1B4FFF]'
             }`}
           >
-            {tab.label}
+            Assets
           </button>
-        ))}
-      </div>
+          <button
+            onClick={() => setMainTab('suggestions')}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+              mainTab === 'suggestions'
+                ? 'border-[#1B4FFF] text-[#1B4FFF]'
+                : 'border-transparent text-[#4A4A4A] hover:text-[#1B4FFF]'
+            }`}
+          >
+            Category Suggestions
+          </button>
+        </div>
+      )}
+
+      {/* Category Suggestions Section (Admin Only) */}
+      {isAdmin && mainTab === 'suggestions' ? (
+        <CategorySuggestionsSection isAdmin={isAdmin} />
+      ) : (
+        <>
+          {/* Filter Tabs */}
+          <div className="flex space-x-2">
+            {tabs.map((tab) => (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                  activeTab === tab.key
+                    ? 'bg-[#1B4FFF] text-white'
+                    : 'bg-white text-[#4A4A4A] hover:bg-[#E6EEFF]'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
 
       {/* Filters */}
       <Card className="bg-white rounded-xl shadow-sm">
@@ -264,11 +301,13 @@ export function Dashboard() {
         </CardContent>
       </Card>
 
-      {/* Pagination info */}
-      {assetsData && (
-        <div className="text-sm text-[#4A4A4A]">
-          Showing {assetsData.items?.length || 0} of {assetsData.total} assets
-        </div>
+          {/* Pagination info */}
+          {assetsData && (
+            <div className="text-sm text-[#4A4A4A]">
+              Showing {assetsData.items?.length || 0} of {assetsData.total} assets
+            </div>
+          )}
+        </>
       )}
     </div>
   );
