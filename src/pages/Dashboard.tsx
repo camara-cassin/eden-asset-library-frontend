@@ -249,6 +249,7 @@ export function Dashboard() {
             <Table>
               <TableHeader>
                 <TableRow className="bg-[#F5F6FA]">
+                  <TableHead className="text-[#4A4A4A] w-16"></TableHead>
                   <TableHead className="text-[#4A4A4A]">Asset Name</TableHead>
                   <TableHead className="text-[#4A4A4A]">Asset Type</TableHead>
                   <TableHead className="text-[#4A4A4A]">Category</TableHead>
@@ -260,40 +261,67 @@ export function Dashboard() {
               <TableBody>
                 {assetsData?.items?.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-[#7A7A7A]">
+                    <TableCell colSpan={7} className="text-center py-8 text-[#7A7A7A]">
                       No assets found
                     </TableCell>
                   </TableRow>
                 ) : (
-                  assetsData?.items?.map((asset) => (
-                    <TableRow key={asset.id} className="hover:bg-[#F5F6FA]">
-                      <TableCell>
-                        <Link
-                          to={`/assets/${asset.id}`}
-                          className="text-[#1B4FFF] hover:underline font-medium"
-                        >
-                          {asset.basic_information?.asset_name || 'Untitled'}
-                        </Link>
-                      </TableCell>
-                      <TableCell className="text-[#1A1A1A] capitalize">{asset.asset_type}</TableCell>
-                      <TableCell className="text-[#1A1A1A]">
-                        {asset.basic_information?.category || '-'}
-                      </TableCell>
-                      <TableCell>
-                        <Badge className={getStatusBadgeColor(asset.status)}>
-                          {asset.status || 'draft'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="text-[#4A4A4A]">
-                          {asset.contributor?.submission_status || 'draft'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-[#4A4A4A]">
-                        {formatDate(asset.system_meta?.updated_at)}
-                      </TableCell>
-                    </TableRow>
-                  ))
+                  assetsData?.items?.map((asset) => {
+                    // Get primary image (only for approved assets)
+                    const primaryImage = asset.status === 'approved' 
+                      ? asset.overview?.images?.find(img => img.is_primary) || asset.overview?.images?.[0]
+                      : null;
+                    
+                    return (
+                      <TableRow key={asset.id} className="hover:bg-[#F5F6FA]">
+                        <TableCell className="w-16 p-2">
+                          {primaryImage ? (
+                            <img
+                              src={primaryImage.url}
+                              alt={primaryImage.caption || asset.basic_information?.asset_name || 'Asset'}
+                              className="w-12 h-12 object-cover rounded"
+                            />
+                          ) : (
+                            <div className="w-12 h-12 bg-gray-100 rounded flex items-center justify-center">
+                              <span className="text-gray-400 text-xs">No img</span>
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Link
+                              to={`/assets/${asset.id}`}
+                              className="text-[#1B4FFF] hover:underline font-medium"
+                            >
+                              {asset.basic_information?.asset_name || 'Untitled'}
+                            </Link>
+                            {asset.digital_assets?.bim_models && asset.digital_assets.bim_models.length > 0 && (
+                              <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700 border-purple-200">
+                                3D/BIM
+                              </Badge>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-[#1A1A1A] capitalize">{asset.asset_type}</TableCell>
+                        <TableCell className="text-[#1A1A1A]">
+                          {asset.basic_information?.category || '-'}
+                        </TableCell>
+                        <TableCell>
+                          <Badge className={getStatusBadgeColor(asset.status)}>
+                            {asset.status || 'draft'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="text-[#4A4A4A]">
+                            {asset.contributor?.submission_status || 'draft'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-[#4A4A4A]">
+                          {formatDate(asset.system_meta?.updated_at)}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
                 )}
               </TableBody>
             </Table>

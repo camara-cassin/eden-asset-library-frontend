@@ -1,13 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getAsset, updateAsset, submitAsset, attachFile, aiExtract } from '../api/assets';
+import { getAsset, updateAsset, submitAsset, attachFile, aiExtract, uploadFilesWithTypes, type DocType } from '../api/assets';
 import { getAssetTypes, getCategories, getScalingPotentials } from '../api/reference';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -17,7 +17,10 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { ChevronDown } from 'lucide-react';
 import { CategorySelector } from '@/components/CategorySelector';
 import { SuggestCategoryModal } from '@/components/SuggestCategoryModal';
-import type { EdenAsset, TimePeriod, AIExtractionResponse, CategorySelection } from '../types/asset';
+import { DocumentUpload, type UploadedFile } from '@/components/DocumentUpload';
+import { ImageUpload, type PendingImage } from '@/components/ImageUpload';
+import { BimModelLinks } from '@/components/BimModelLinks';
+import type { EdenAsset, TimePeriod, AIExtractionResponse, CategorySelection, AssetImage } from '../types/asset';
 
 const FILE_TARGETS = [
   { value: 'cad_file_urls', label: 'CAD Files' },
@@ -120,6 +123,14 @@ export function EditAsset() {
   const [environmentalOpen, setEnvironmentalOpen] = useState(false);
   const [humanImpactOpen, setHumanImpactOpen] = useState(false);
   const [deploymentOpen, setDeploymentOpen] = useState(false);
+
+  // Document upload state
+  const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
+  const [isUploadingDocs, setIsUploadingDocs] = useState(false);
+
+  // Image upload state
+  const [pendingImages, setPendingImages] = useState<PendingImage[]>([]);
+  const [isUploadingImages, setIsUploadingImages] = useState(false);
 
   // Fetch reference data
   const { data: assetTypes } = useQuery({
@@ -241,6 +252,126 @@ export function EditAsset() {
     });
     setHasChanges(true);
   };
+
+  // Handle document upload
+  const handleUploadDocuments = async () => {
+    if (uploadedFiles.length === 0) return;
+
+    setIsUploadingDocs(true);
+    try {
+      const filesWithTypes = uploadedFiles.map((item) => ({
+        file: item.file,
+        docType: item.docType as DocType,
+      }));
+
+      const result = await uploadFilesWithTypes(id!, filesWithTypes);
+
+      setUploadedFiles([]);
+      setFileMessage({ type: 'success', text: `${result.uploaded.length} document(s) uploaded successfully` });
+      setTimeout(() => setFileMessage(null), 3000);
+      queryClient.invalidateQueries({ queryKey: ['asset', id] });
+    } catch (error) {
+      setFileMessage({ type: 'error', text: error instanceof Error ? error.message : 'Failed to upload documents' });
+    } finally {
+      setIsUploadingDocs(false);
+    }
+  };
+
+  // Handle image upload
+  const handleUploadImages = async () => {
+    if (pendingImages.length === 0) return;
+
+    setIsUploadingImages(true);
+    try {
+      const filesWithTypes = pendingImages.map((item) => ({
+        file: item.file,
+        docType: 'images' as DocType,
+      }));
+
+      const result = await uploadFilesWithTypes(id!, filesWithTypes);
+
+      // Create new image entries with the uploaded URLs
+      const existingImagesData = formData.overview?.images || [];
+      const newImages: AssetImage[] = result.uploaded.map((file, index) => ({
+        url: file.url,
+        caption: pendingImages[index]?.caption || '',
+        is_primary: pendingImages[index]?.is_primary || false,
+      }));
+
+      // If any new image is primary, clear primary from existing images
+      const hasPrimaryNew = newImages.some(img => img.is_primary);
+      const updatedExisting = hasPrimaryNew
+        ? existingImagesData.map(img => ({ ...img, is_primary: false }))
+        : existingImagesData;
+
+      updateFormField('overview.images', [...updatedExisting, ...newImages]);
+      setPendingImages([]);
+      setFileMessage({ type: 'success', text: `${result.uploaded.length} image(s) uploaded successfully` });
+      setTimeout(() => setFileMessage(null), 3000);
+      queryClient.invalidateQueries({ queryKey: ['asset', id] });
+    } catch (error) {
+      setFileMessage({ type: 'error', text: error instanceof Error ? error.message : 'Failed to upload images' });
+    } finally {
+      setIsUploadingImages(false);
+    }
+  };
+
+  // Get existing documents from asset's documentation_uploads
+  const getExistingDocuments = () => {
+    const uploads = asset?.documentation_uploads;
+    if (!uploads) return [];
+    
+    const docs: Array<{ url: string; filename: string; docType: string; size?: number }> = [];
+    
+    // Handle single URL fields
+    const singleUrlFields: Array<{ field: keyof typeof uploads; docType: string }> = [
+      { field: 'technical_spec_sheet_url', docType: 'technical_spec' },
+      { field: 'product_datasheet_url', docType: 'technical_spec' },
+      { field: 'build_manual_url', docType: 'manuals' },
+      { field: 'step_by_step_instructions_url', docType: 'manuals' },
+      { field: 'bom_url', docType: 'technical_spec' },
+      { field: 'tools_required_doc_url', docType: 'technical_spec' },
+      { field: 'skills_required_doc_url', docType: 'technical_spec' },
+    ];
+    
+    singleUrlFields.forEach(({ field, docType }) => {
+      const url = uploads[field];
+      if (url && typeof url === 'string') {
+        const filename = url.split('/').pop() || url;
+        docs.push({ url, filename, docType });
+      }
+    });
+    
+    // Handle array URL fields
+    const arrayUrlFields: Array<{ field: keyof typeof uploads; docType: string }> = [
+      { field: 'cad_file_urls', docType: 'cad_files' },
+      { field: 'bim_file_urls', docType: 'cad_files' },
+      { field: 'engineering_drawings_urls', docType: 'engineering_drawings' },
+      { field: 'safety_data_sheets_urls', docType: 'technical_spec' },
+      { field: 'certifications_docs_urls', docType: 'technical_spec' },
+      { field: 'patent_docs_urls', docType: 'technical_spec' },
+      { field: 'marketing_pdfs_urls', docType: 'general' },
+      { field: 'instructional_video_urls', docType: 'manuals' },
+      { field: 'additional_docs_urls', docType: 'general' },
+    ];
+    
+    arrayUrlFields.forEach(({ field, docType }) => {
+      const urls = uploads[field];
+      if (urls && Array.isArray(urls)) {
+        urls.forEach((url) => {
+          const filename = url.split('/').pop() || url;
+          docs.push({ url, filename, docType });
+        });
+      }
+    });
+    
+    return docs;
+  };
+
+  const existingDocuments = getExistingDocuments();
+
+  // Get existing images from overview.images
+  const existingImages: AssetImage[] = formData.overview?.images || [];
 
   if (isLoading) {
     return (
@@ -579,26 +710,92 @@ export function EditAsset() {
       {/* Documentation Uploads */}
       <Card className="bg-white rounded-xl shadow-sm">
         <CardHeader>
-          <CardTitle className="text-xl text-[#1A1A1A]">Documentation Uploads</CardTitle>
+          <CardTitle className="text-xl text-[#1A1A1A]">Documentation</CardTitle>
+          <CardDescription className="text-[#7A7A7A]">
+            Upload technical specs, CAD files, manuals, and other supporting documents.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <DocumentUpload
+            uploadedFiles={uploadedFiles}
+            onFilesChange={setUploadedFiles}
+            existingDocuments={existingDocuments}
+            disabled={isUploadingDocs}
+          />
+          {uploadedFiles.length > 0 && (
+            <div className="flex justify-end">
+              <Button
+                type="button"
+                onClick={handleUploadDocuments}
+                disabled={isUploadingDocs}
+                className="bg-[#1B4FFF] hover:bg-[#1B4FFF]/90"
+              >
+                {isUploadingDocs ? (
+                  <>
+                    <Spinner className="w-4 h-4 mr-2" />
+                    Uploading...
+                  </>
+                ) : (
+                  `Upload ${uploadedFiles.length} Document(s)`
+                )}
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Image Uploads */}
+      <Card className="bg-white rounded-xl shadow-sm">
+        <CardHeader>
+          <CardTitle className="text-xl text-[#1A1A1A]">Images</CardTitle>
+          <CardDescription className="text-[#7A7A7A]">
+            Upload up to 4 images. Mark one as primary to display as the asset thumbnail.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <ImageUpload
+            images={existingImages}
+            onImagesChange={(images) => updateFormField('overview.images', images)}
+            pendingImages={pendingImages}
+            onPendingImagesChange={setPendingImages}
+            maxImages={4}
+            disabled={isUploadingImages}
+          />
+          {pendingImages.length > 0 && (
+            <div className="flex justify-end">
+              <Button
+                type="button"
+                onClick={handleUploadImages}
+                disabled={isUploadingImages}
+                className="bg-[#1B4FFF] hover:bg-[#1B4FFF]/90"
+              >
+                {isUploadingImages ? (
+                  <>
+                    <Spinner className="w-4 h-4 mr-2" />
+                    Uploading...
+                  </>
+                ) : (
+                  `Upload ${pendingImages.length} Image(s)`
+                )}
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* 3D & BIM File Links */}
+      <Card className="bg-white rounded-xl shadow-sm">
+        <CardHeader>
+          <CardTitle className="text-xl text-[#1A1A1A]">3D & BIM Files</CardTitle>
+          <CardDescription className="text-[#7A7A7A]">
+            Add links to 3D models or BIM files hosted externally.
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          {asset.documentation_uploads && Object.entries(asset.documentation_uploads).some(([, v]) => v && (Array.isArray(v) ? v.length > 0 : true)) ? (
-            <div className="space-y-2">
-              {Object.entries(asset.documentation_uploads).map(([key, value]) => {
-                if (!value || (Array.isArray(value) && value.length === 0)) return null;
-                return (
-                  <div key={key} className="text-sm">
-                    <span className="font-medium text-[#1A1A1A]">{key}: </span>
-                    <span className="text-[#4A4A4A]">
-                      {Array.isArray(value) ? value.join(', ') : value}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <p className="text-[#7A7A7A]">No documents uploaded yet.</p>
-          )}
+          <BimModelLinks
+            models={formData.digital_assets?.bim_models || []}
+            onChange={(models) => updateFormField('digital_assets.bim_models', models)}
+          />
         </CardContent>
       </Card>
 

@@ -69,6 +69,19 @@ export async function uploadFiles(
   return postFormData<UploadFilesResponse>(`/assets/${id}/uploads`, formData);
 }
 
+// Upload multiple files with different doc types
+export async function uploadFilesWithTypes(
+  id: string,
+  filesWithTypes: Array<{ file: File; docType: DocType }>
+): Promise<UploadFilesResponse> {
+  const formData = new FormData();
+  filesWithTypes.forEach(({ file, docType }) => {
+    formData.append('files', file);
+    formData.append('doc_types', docType);
+  });
+  return postFormData<UploadFilesResponse>(`/assets/${id}/uploads`, formData);
+}
+
 // Public endpoints
 export async function listPublicAssets(params?: AssetListParams): Promise<PaginatedResponse<AssetListItem>> {
   return get<PaginatedResponse<AssetListItem>>('/public/assets', params as Record<string, unknown>);

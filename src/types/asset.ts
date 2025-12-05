@@ -103,8 +103,27 @@ export interface Contributor {
   agreement_document_url?: string;
 }
 
+export interface AssetImage {
+  url: string;
+  caption?: string;
+  is_primary?: boolean;
+}
+
+export type BimFormat = 'IFC' | 'RVT' | 'OBJ' | 'STL' | 'glTF' | 'USDZ' | 'Other';
+
+export interface BimModel {
+  url: string;
+  format?: BimFormat;
+  source_software?: string;
+}
+
+export interface DigitalAssets {
+  bim_models?: BimModel[];
+}
+
 export interface Overview {
   photos?: string[];
+  images?: AssetImage[];
   key_features?: string[];
   intended_use_cases?: string[];
   asset_type_description?: string;
@@ -280,6 +299,7 @@ export interface EdenAsset {
   contributor?: Contributor;
   overview?: Overview;
   documentation_uploads?: DocumentationUploads;
+  digital_assets?: DigitalAssets;
   physical_configuration?: PhysicalConfiguration;
   plan_configuration?: PlanConfiguration;
   functional_io?: FunctionalIO;
@@ -297,6 +317,7 @@ export interface AssetListItem {
   status: AssetStatus;
   basic_information?: BasicInformation;
   overview?: Overview;
+  digital_assets?: DigitalAssets;
   eden_impact_summary?: EdenImpactSummary;
   deployment?: Deployment;
   system_meta?: SystemMeta;

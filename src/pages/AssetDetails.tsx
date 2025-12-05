@@ -135,6 +135,58 @@ export function AssetDetails() {
         </div>
       </div>
 
+      {/* Image Gallery - Only show for approved assets with images */}
+      {asset.system_meta?.status === 'approved' && asset.overview?.images && asset.overview.images.length > 0 && (
+        <Card className="bg-white rounded-xl shadow-sm overflow-hidden">
+          <CardContent className="p-0">
+            {(() => {
+              const images = asset.overview?.images || [];
+              const primaryImage = images.find(img => img.is_primary) || images[0];
+              const otherImages = images.filter(img => img !== primaryImage);
+              
+              return (
+                <div className="space-y-4">
+                  {/* Primary Image */}
+                  {primaryImage && (
+                    <div className="w-full">
+                      <img
+                        src={primaryImage.url}
+                        alt={primaryImage.caption || asset.basic_information?.asset_name || 'Asset'}
+                        className="w-full h-64 md:h-96 object-cover"
+                      />
+                      {primaryImage.caption && (
+                        <p className="text-sm text-[#7A7A7A] p-4 pb-0">{primaryImage.caption}</p>
+                      )}
+                    </div>
+                  )}
+                  
+                  {/* Gallery - Other Images */}
+                  {otherImages.length > 0 && (
+                    <div className="px-4 pb-4">
+                      <p className="text-sm font-medium text-[#1A1A1A] mb-2">More Images</p>
+                      <div className="grid grid-cols-3 md:grid-cols-4 gap-2">
+                        {otherImages.map((img, index) => (
+                          <div key={index} className="relative">
+                            <img
+                              src={img.url}
+                              alt={img.caption || `Image ${index + 2}`}
+                              className="w-full h-24 object-cover rounded"
+                            />
+                            {img.caption && (
+                              <p className="text-xs text-[#7A7A7A] mt-1 truncate">{img.caption}</p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Tabs */}
       <Tabs defaultValue="summary" className="space-y-4">
         <TabsList className="bg-[#F5F6FA]">
@@ -256,6 +308,40 @@ export function AssetDetails() {
               )}
             </CardContent>
           </Card>
+
+          {/* 3D & BIM Files */}
+          {asset.digital_assets?.bim_models && asset.digital_assets.bim_models.length > 0 && (
+            <Card className="bg-white rounded-xl shadow-sm mt-4">
+              <CardHeader>
+                <CardTitle className="text-xl text-[#1A1A1A]">3D & BIM Files</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {asset.digital_assets.bim_models.map((model, index) => (
+                    <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <div className="flex-1">
+                        <a
+                          href={model.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[#1B4FFF] hover:underline text-sm font-medium"
+                        >
+                          {model.url}
+                        </a>
+                        <div className="flex gap-4 mt-1 text-xs text-[#7A7A7A]">
+                          {model.format && <span>Format: {model.format}</span>}
+                          {model.source_software && <span>Source: {model.source_software}</span>}
+                        </div>
+                      </div>
+                      <Badge variant="outline" className="ml-2">
+                        {model.format || '3D'}
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
         {/* Configuration Tab */}
