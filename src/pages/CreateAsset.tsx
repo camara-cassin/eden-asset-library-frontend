@@ -21,6 +21,14 @@ interface ValidationErrors {
   assetType?: string;
   assetName?: string;
   categories?: string;
+  subcategories?: string;
+  shortSummary?: string;
+  companyName?: string;
+  companyEmail?: string;
+  websiteUrl?: string;
+  documentation?: string;
+  photos?: string;
+  retailPrice?: string;
 }
 
 interface UploadedFile {
@@ -37,6 +45,8 @@ interface FormData {
   companyEmail: string;
   companyPhone: string;
   websiteUrl: string;
+  externalDocUrl: string;
+  retailPrice: string;
 }
 
 const DOC_TYPE_LABELS: Record<string, string> = {
@@ -51,8 +61,9 @@ const DOC_TYPE_LABELS: Record<string, string> = {
 const STEPS = [
   { id: 1, name: 'Basic Info', description: 'Name, type, and categories' },
   { id: 2, name: 'Supplier', description: 'Company and contact details' },
-  { id: 3, name: 'Documentation', description: 'Upload files and URLs' },
-  { id: 4, name: 'Review', description: 'Review and submit' },
+  { id: 3, name: 'Documentation', description: 'Upload files or URLs' },
+  { id: 4, name: 'Pricing', description: 'Set retail price' },
+  { id: 5, name: 'Review', description: 'Review and submit' },
 ];
 
 const getInitialFormData = (): FormData => {
@@ -70,6 +81,8 @@ const getInitialFormData = (): FormData => {
         companyEmail: parsed.companyEmail || '',
         companyPhone: parsed.companyPhone || '',
         websiteUrl: parsed.websiteUrl || '',
+        externalDocUrl: parsed.externalDocUrl || '',
+        retailPrice: parsed.retailPrice || '',
       };
     }
   } catch (e) {
@@ -85,6 +98,8 @@ const getInitialFormData = (): FormData => {
     companyEmail: '',
     companyPhone: '',
     websiteUrl: '',
+    externalDocUrl: '',
+    retailPrice: '',
   };
 };
 
@@ -150,8 +165,88 @@ export function CreateAsset() {
     } else if (formData.categories.length > 4) {
       errors.categories = 'Maximum 4 categories allowed';
     }
+    // Check that at least one category has a subcategory selected
+    const hasSubcategory = formData.categories.some(c => c.subcategories && c.subcategories.length > 0);
+    if (formData.categories.length > 0 && !hasSubcategory) {
+      errors.subcategories = 'At least one subcategory is required';
+    }
+    if (!formData.shortSummary.trim()) {
+      errors.shortSummary = 'Short summary is required';
+    }
     
-    setValidationErrors(errors);
+    setValidationErrors(prev => ({ ...prev, ...errors }));
+    return Object.keys(errors).length === 0;
+  };
+
+  const validateStep2 = (): boolean => {
+    const errors: ValidationErrors = {};
+    
+    if (!formData.companyName.trim()) {
+      errors.companyName = 'Supplier name is required';
+    }
+    if (!formData.companyEmail.trim()) {
+      errors.companyEmail = 'Supplier email is required';
+    } else {
+      // Basic email validation
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(formData.companyEmail)) {
+        errors.companyEmail = 'Please enter a valid email address';
+      }
+    }
+    if (!formData.websiteUrl.trim()) {
+      errors.websiteUrl = 'Supplier website is required';
+    } else {
+      // Basic URL validation
+      try {
+        new URL(formData.websiteUrl);
+      } catch {
+        errors.websiteUrl = 'Please enter a valid URL (e.g., https://example.com)';
+      }
+    }
+    
+    setValidationErrors(prev => ({ ...prev, ...errors }));
+    return Object.keys(errors).length === 0;
+  };
+
+  const validateStep3 = (): boolean => {
+    const errors: ValidationErrors = {};
+    
+    // Require at least one file upload OR one external documentation URL
+    const hasFiles = uploadedFiles.length > 0;
+    const hasExternalUrl = formData.externalDocUrl.trim() !== '';
+    
+    if (!hasFiles && !hasExternalUrl) {
+      errors.documentation = 'Please upload at least one file or provide an external documentation URL';
+    }
+    
+    // Require at least one photo (image file)
+    const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
+    const hasPhoto = uploadedFiles.some(f => {
+      const fileName = f.file.name.toLowerCase();
+      return imageExtensions.some(ext => fileName.endsWith(ext)) || f.docType === 'images';
+    });
+    
+    if (!hasPhoto) {
+      errors.photos = 'Please upload at least one product photo';
+    }
+    
+    setValidationErrors(prev => ({ ...prev, ...errors }));
+    return Object.keys(errors).length === 0;
+  };
+
+  const validateStep4 = (): boolean => {
+    const errors: ValidationErrors = {};
+    
+    if (formData.retailPrice.trim() === '') {
+      errors.retailPrice = 'Retail price is required';
+    } else {
+      const price = parseFloat(formData.retailPrice);
+      if (isNaN(price) || price < 0) {
+        errors.retailPrice = 'Please enter a valid price (0 or greater)';
+      }
+    }
+    
+    setValidationErrors(prev => ({ ...prev, ...errors }));
     return Object.keys(errors).length === 0;
   };
 
@@ -257,19 +352,54 @@ export function CreateAsset() {
   };
 
   const handleNext = () => {
+    // Clear previous validation errors for this step
+    setValidationErrors({});
+    
     if (currentStep === 1) {
       setTouched({
         assetType: true,
         assetName: true,
         categories: true,
+        subcategories: true,
+        shortSummary: true,
       });
       
       if (!validateStep1()) {
         return;
       }
+    } else if (currentStep === 2) {
+      setTouched(prev => ({
+        ...prev,
+        companyName: true,
+        companyEmail: true,
+        websiteUrl: true,
+      }));
+      
+      if (!validateStep2()) {
+        return;
+      }
+    } else if (currentStep === 3) {
+      setTouched(prev => ({
+        ...prev,
+        documentation: true,
+        photos: true,
+      }));
+      
+      if (!validateStep3()) {
+        return;
+      }
+    }else if (currentStep === 4) {
+      setTouched(prev => ({
+        ...prev,
+        retailPrice: true,
+      }));
+      
+      if (!validateStep4()) {
+        return;
+      }
     }
     
-    setCurrentStep(prev => Math.min(prev + 1, 4));
+    setCurrentStep(prev => Math.min(prev + 1, 5));
   };
 
   const handleBack = () => {
@@ -279,10 +409,23 @@ export function CreateAsset() {
   const handleSubmit = () => {
     // Clear any previous errors
     setSubmitError(null);
+    setValidationErrors({});
     
-    // Final validation
+    // Final validation of all steps
     if (!validateStep1()) {
       setCurrentStep(1);
+      return;
+    }
+    if (!validateStep2()) {
+      setCurrentStep(2);
+      return;
+    }
+    if (!validateStep3()) {
+      setCurrentStep(3);
+      return;
+    }
+    if (!validateStep4()) {
+      setCurrentStep(4);
       return;
     }
     
@@ -291,22 +434,39 @@ export function CreateAsset() {
       basic_information: {
         asset_name: formData.assetName,
         categories: formData.categories,
-        short_summary: formData.shortSummary || undefined,
-        company_name: formData.companyName || undefined,
-        company_email: formData.companyEmail || undefined,
+        short_summary: formData.shortSummary,
+        company_name: formData.companyName,
+        company_email: formData.companyEmail,
         company_phone: formData.companyPhone || undefined,
-        company_website_url: formData.websiteUrl || undefined,
+        company_website_url: formData.websiteUrl,
       },
+      economics: {
+        retail_price: parseFloat(formData.retailPrice),
+      },
+      external_documentation_url: formData.externalDocUrl || undefined,
     });
   };
 
   const handleExtractWithAI = async () => {
     // Clear any previous errors
     setSubmitError(null);
+    setValidationErrors({});
     
-    // Final validation
+    // Final validation of all steps
     if (!validateStep1()) {
       setCurrentStep(1);
+      return;
+    }
+    if (!validateStep2()) {
+      setCurrentStep(2);
+      return;
+    }
+    if (!validateStep3()) {
+      setCurrentStep(3);
+      return;
+    }
+    if (!validateStep4()) {
+      setCurrentStep(4);
       return;
     }
     
@@ -319,12 +479,16 @@ export function CreateAsset() {
         basic_information: {
           asset_name: formData.assetName,
           categories: formData.categories,
-          short_summary: formData.shortSummary || undefined,
-          company_name: formData.companyName || undefined,
-          company_email: formData.companyEmail || undefined,
+          short_summary: formData.shortSummary,
+          company_name: formData.companyName,
+          company_email: formData.companyEmail,
           company_phone: formData.companyPhone || undefined,
-          company_website_url: formData.websiteUrl || undefined,
+          company_website_url: formData.websiteUrl,
         },
+        economics: {
+          retail_price: parseFloat(formData.retailPrice),
+        },
+        external_documentation_url: formData.externalDocUrl || undefined,
       });
       
       const assetId = asset.id;
@@ -465,7 +629,7 @@ export function CreateAsset() {
 
         {/* Category Selection */}
         <div className="space-y-2">
-          <Label className="text-[#1A1A1A]">Categories * (select 1-4)</Label>
+          <Label className="text-[#1A1A1A]">Categories * (select 1-4, with at least one subcategory)</Label>
           <CategorySelector
             value={formData.categories}
             onChange={(categories) => updateFormData({ categories })}
@@ -477,18 +641,25 @@ export function CreateAsset() {
           {touched.categories && validationErrors.categories && (
             <p className="text-sm text-red-500">{validationErrors.categories}</p>
           )}
+          {touched.subcategories && validationErrors.subcategories && (
+            <p className="text-sm text-red-500">{validationErrors.subcategories}</p>
+          )}
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="shortSummary" className="text-[#1A1A1A]">Short Summary</Label>
+          <Label htmlFor="shortSummary" className="text-[#1A1A1A]">Short Summary *</Label>
           <Textarea
             id="shortSummary"
             value={formData.shortSummary}
             onChange={(e) => updateFormData({ shortSummary: e.target.value })}
+            onBlur={() => handleBlur('shortSummary')}
             placeholder="Brief description of the asset and its purpose"
             rows={3}
-            className="border-[#D8D8D8] focus:ring-[#1B4FFF]"
+            className={`border-[#D8D8D8] focus:ring-[#1B4FFF] ${touched.shortSummary && validationErrors.shortSummary ? 'border-red-500' : ''}`}
           />
+          {touched.shortSummary && validationErrors.shortSummary && (
+            <p className="text-sm text-red-500">{validationErrors.shortSummary}</p>
+          )}
         </div>
       </CardContent>
     </Card>
@@ -499,47 +670,59 @@ export function CreateAsset() {
     <Card className="bg-white rounded-xl shadow-sm">
       <CardHeader>
         <CardTitle className="text-xl text-[#1A1A1A]">Supplier Information</CardTitle>
-        <CardDescription>Company and contact details (optional)</CardDescription>
+        <CardDescription>Every asset must have a verifiable professional supplier</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label htmlFor="companyName" className="text-[#1A1A1A]">Company Name</Label>
+            <Label htmlFor="companyName" className="text-[#1A1A1A]">Supplier Name *</Label>
             <Input
               id="companyName"
               value={formData.companyName}
               onChange={(e) => updateFormData({ companyName: e.target.value })}
+              onBlur={() => handleBlur('companyName')}
               placeholder="e.g., SolarTech Inc."
-              className="border-[#D8D8D8] focus:ring-[#1B4FFF]"
+              className={`border-[#D8D8D8] focus:ring-[#1B4FFF] ${touched.companyName && validationErrors.companyName ? 'border-red-500' : ''}`}
             />
+            {touched.companyName && validationErrors.companyName && (
+              <p className="text-sm text-red-500">{validationErrors.companyName}</p>
+            )}
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="websiteUrl" className="text-[#1A1A1A]">Website / Product URL</Label>
+            <Label htmlFor="websiteUrl" className="text-[#1A1A1A]">Supplier Website *</Label>
             <Input
               id="websiteUrl"
               type="url"
               value={formData.websiteUrl}
               onChange={(e) => updateFormData({ websiteUrl: e.target.value })}
+              onBlur={() => handleBlur('websiteUrl')}
               placeholder="https://example.com/product"
-              className="border-[#D8D8D8] focus:ring-[#1B4FFF]"
+              className={`border-[#D8D8D8] focus:ring-[#1B4FFF] ${touched.websiteUrl && validationErrors.websiteUrl ? 'border-red-500' : ''}`}
             />
+            {touched.websiteUrl && validationErrors.websiteUrl && (
+              <p className="text-sm text-red-500">{validationErrors.websiteUrl}</p>
+            )}
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="companyEmail" className="text-[#1A1A1A]">Contact Email</Label>
+            <Label htmlFor="companyEmail" className="text-[#1A1A1A]">Supplier Email *</Label>
             <Input
               id="companyEmail"
               type="email"
               value={formData.companyEmail}
               onChange={(e) => updateFormData({ companyEmail: e.target.value })}
+              onBlur={() => handleBlur('companyEmail')}
               placeholder="contact@company.com"
-              className="border-[#D8D8D8] focus:ring-[#1B4FFF]"
+              className={`border-[#D8D8D8] focus:ring-[#1B4FFF] ${touched.companyEmail && validationErrors.companyEmail ? 'border-red-500' : ''}`}
             />
+            {touched.companyEmail && validationErrors.companyEmail && (
+              <p className="text-sm text-red-500">{validationErrors.companyEmail}</p>
+            )}
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="companyPhone" className="text-[#1A1A1A]">Contact Phone</Label>
+            <Label htmlFor="companyPhone" className="text-[#1A1A1A]">Contact Phone (optional)</Label>
             <Input
               id="companyPhone"
               type="tel"
@@ -564,13 +747,30 @@ export function CreateAsset() {
       <CardHeader>
         <CardTitle className="text-xl text-[#1A1A1A]">Documentation</CardTitle>
         <CardDescription>
-          Upload technical specs, CAD files, manuals, and other documents. AI will extract information from these.
+          Upload technical specs, CAD files, manuals, and product photos. AI will extract information from these.
         </CardDescription>
-        <p className="text-sm text-[#7A7A7A] mt-1">
-          You can leave this empty if you don't have files yet. A URL alone is enough to start.
-        </p>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* External Documentation URL */}
+        <div className="space-y-2">
+          <Label htmlFor="externalDocUrl" className="text-[#1A1A1A]">External Documentation URL (optional if uploading files)</Label>
+          <Input
+            id="externalDocUrl"
+            type="url"
+            value={formData.externalDocUrl}
+            onChange={(e) => updateFormData({ externalDocUrl: e.target.value })}
+            placeholder="https://example.com/product-specs.pdf"
+            className="border-[#D8D8D8] focus:ring-[#1B4FFF]"
+          />
+          <p className="text-xs text-[#7A7A7A]">Link to product documentation, spec sheets, or technical manuals</p>
+        </div>
+
+        {/* File Upload Section */}
+        <div className="space-y-2">
+          <Label className="text-[#1A1A1A]">Upload Files *</Label>
+          <p className="text-xs text-[#7A7A7A]">At least one file OR external URL required. At least one product photo required.</p>
+        </div>
+        
         <div className="flex flex-col sm:flex-row gap-4">
           <div className="flex-1 space-y-2">
             <Label htmlFor="docType" className="text-[#1A1A1A]">Document Type</Label>
@@ -646,12 +846,55 @@ export function CreateAsset() {
             </p>
           </div>
         )}
+
+        {/* Validation Errors */}
+        {touched.documentation && validationErrors.documentation && (
+          <p className="text-sm text-red-500">{validationErrors.documentation}</p>
+        )}
+        {touched.photos && validationErrors.photos && (
+          <p className="text-sm text-red-500">{validationErrors.photos}</p>
+        )}
       </CardContent>
     </Card>
   );
 
   // Step 4: Review
+  // Step 4: Pricing
   const renderStep4 = () => (
+    <Card className="bg-white rounded-xl shadow-sm">
+      <CardHeader>
+        <CardTitle className="text-xl text-[#1A1A1A]">Pricing</CardTitle>
+        <CardDescription>Set the retail price for this asset</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor="retailPrice" className="text-[#1A1A1A]">Retail Price (USD) *</Label>
+          <Input
+            id="retailPrice"
+            type="number"
+            min="0"
+            step="0.01"
+            value={formData.retailPrice}
+            onChange={(e) => updateFormData({ retailPrice: e.target.value })}
+            onBlur={() => handleBlur('retailPrice')}
+            placeholder="0.00"
+            className={`border-[#D8D8D8] focus:ring-[#1B4FFF] ${touched.retailPrice && validationErrors.retailPrice ? 'border-red-500' : ''}`}
+          />
+          {touched.retailPrice && validationErrors.retailPrice && (
+            <p className="text-sm text-red-500">{validationErrors.retailPrice}</p>
+          )}
+          <p className="text-xs text-[#7A7A7A]">Enter the retail price in USD. Can be 0 for free assets.</p>
+        </div>
+
+        <p className="text-sm text-[#7A7A7A]">
+          Other pricing fields (wholesale price, minimum quantity, etc.) can be added later on the edit page.
+        </p>
+      </CardContent>
+    </Card>
+  );
+
+  // Step 5: Review
+  const renderStep5 = () => (
     <Card className="bg-white rounded-xl shadow-sm">
       <CardHeader>
         <CardTitle className="text-xl text-[#1A1A1A]">Review Your Asset</CardTitle>
@@ -725,6 +968,22 @@ export function CreateAsset() {
             ) : (
               <p className="text-[#7A7A7A]">No files uploaded</p>
             )}
+            {formData.externalDocUrl && (
+              <p className="text-sm mt-2">
+                <span className="text-[#7A7A7A]">External URL:</span> {formData.externalDocUrl}
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* Pricing Summary */}
+        <div className="space-y-2">
+          <h3 className="font-medium text-[#1A1A1A]">Pricing</h3>
+          <div className="bg-gray-50 rounded-lg p-4 space-y-2">
+            <div className="flex justify-between">
+              <span className="text-[#7A7A7A]">Retail Price (USD):</span>
+              <span className="font-medium">${formData.retailPrice || '0.00'}</span>
+            </div>
           </div>
         </div>
 
@@ -759,6 +1018,7 @@ export function CreateAsset() {
       {currentStep === 2 && renderStep2()}
       {currentStep === 3 && renderStep3()}
       {currentStep === 4 && renderStep4()}
+      {currentStep === 5 && renderStep5()}
 
       {/* Error display */}
       {(submitError || uploadError) && (
@@ -793,7 +1053,7 @@ export function CreateAsset() {
         </div>
 
         <div className="flex gap-2">
-          {currentStep < 4 ? (
+          {currentStep < 5 ? (
             <Button
               type="button"
               onClick={handleNext}
@@ -840,7 +1100,7 @@ export function CreateAsset() {
         </div>
       </div>
 
-      {currentStep === 4 && (
+      {currentStep === 5 && (
         <p className="text-sm text-[#7A7A7A] text-center">
           "Extract with AI" will create the asset, upload your files, and use AI to pre-fill detailed specifications.
           You can review and edit all fields on the next page.

@@ -357,6 +357,13 @@ export interface AssetCreatePayload {
     asset_type_description?: string;
     intended_use_cases?: string[];
   };
+  economics?: {
+    retail_price?: number;
+    wholesale_price?: number;
+    minimum_wholesale_quantity?: number;
+    availability_type?: 'for_sale' | 'licensed' | 'open_source' | 'proprietary' | 'not_available';
+  };
+  external_documentation_url?: string;
 }
 
 export interface AssetUpdatePayload {
