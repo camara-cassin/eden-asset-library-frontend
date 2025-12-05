@@ -148,10 +148,65 @@ export interface DocumentationUploads {
   additional_docs_urls?: string[];
 }
 
+// Dimension value with unit
+export interface DimensionValue {
+  value?: number;
+  unit?: string; // cm, m, inches, ft
+}
+
+// Weight value with unit
+export interface WeightValue {
+  value?: number;
+  unit?: string; // kg, lb
+}
+
+// Area value with unit
+export interface AreaValue {
+  value?: number;
+  unit?: string; // m², ft², acres, hectares
+}
+
+// Dimensions with L/W/H and auto-calculated volume
 export interface Dimensions {
+  length?: DimensionValue;
+  width?: DimensionValue;
+  height?: DimensionValue;
+  volume?: number; // Auto-calculated: L x W x H
+}
+
+// Legacy dimensions (for backwards compatibility)
+export interface LegacyDimensions {
   length?: number;
   width?: number;
   height?: number;
+}
+
+// Package size for shipping
+export interface PackageSize {
+  length?: DimensionValue;
+  width?: DimensionValue;
+  height?: DimensionValue;
+}
+
+// Stackability information
+export interface Stackability {
+  is_stackable?: boolean;
+  max_stack_height_units?: number;
+  max_load_per_unit?: WeightValue;
+}
+
+// Modular interface entry
+export interface ModularInterface {
+  interface_types?: string[]; // Electrical, Plumbing, Data, Mechanical, Fluid, Hydraulic, Pneumatic, Other
+  specification?: string;
+  notes?: string;
+}
+
+// Unit variant (new structure)
+export interface UnitVariantNew {
+  variant_name?: string;
+  model_number?: string;
+  notes?: string;
 }
 
 export interface OperatingRange {
@@ -162,10 +217,11 @@ export interface OperatingRange {
   pressure_notes?: string;
 }
 
+// Legacy UnitVariant for backwards compatibility
 export interface UnitVariant {
   unit_name?: string;
   unit_of_analysis?: string;
-  dimensions?: Dimensions;
+  dimensions?: LegacyDimensions;
   footprint_area?: number;
   volume?: number;
   unit_weight?: number;
@@ -177,8 +233,32 @@ export interface UnitVariant {
   scalability_notes?: string;
 }
 
+// Environmental rating options
+export type EnvironmentalRating = 
+  | 'Indoor'
+  | 'Outdoor'
+  | 'Marine / Coastal'
+  | 'High-Dust / Industrial'
+  | 'High-Humidity'
+  | 'Explosion-Proof / Hazardous Area'
+  | 'Clean Room'
+  | 'Unknown';
+
 export interface PhysicalConfiguration {
+  // Legacy field for backwards compatibility
   unit_variants?: UnitVariant[];
+  
+  // New detailed fields
+  unit_variants_new?: UnitVariantNew[];
+  dimensions?: Dimensions;
+  footprint_area?: AreaValue;
+  unit_weight?: WeightValue;
+  package_size?: PackageSize;
+  package_weight?: WeightValue;
+  units_per_package?: number;
+  stackability?: Stackability;
+  modular_interfaces?: ModularInterface[];
+  environmental_rating?: EnvironmentalRating;
 }
 
 export interface PlanConfiguration {
