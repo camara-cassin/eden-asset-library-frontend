@@ -547,6 +547,35 @@ export function CreateAsset() {
 
   const isProcessing = createMutation.isPending || isUploading || isExtracting;
 
+  // Helper to check if there are any validation errors for the current step
+  const hasValidationErrors = Object.keys(validationErrors).length > 0;
+
+  // Validation error summary component
+  const ValidationErrorSummary = ({ errors }: { errors: ValidationErrors }) => {
+    const errorMessages = Object.values(errors).filter(Boolean);
+    if (errorMessages.length === 0) return null;
+    
+    return (
+      <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+        <div className="flex items-start gap-3">
+          <div className="flex-shrink-0">
+            <svg className="h-5 w-5 text-red-500" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+            </svg>
+          </div>
+          <div>
+            <h3 className="text-sm font-medium text-red-800">Please complete the following required fields:</h3>
+            <ul className="mt-2 text-sm text-red-700 list-disc list-inside space-y-1">
+              {errorMessages.map((msg, idx) => (
+                <li key={idx}>{msg}</li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   // Step indicator component
   const StepIndicator = () => (
     <div className="mb-8">
@@ -591,6 +620,7 @@ export function CreateAsset() {
         <CardDescription>Required fields to create your asset</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        {hasValidationErrors && <ValidationErrorSummary errors={validationErrors} />}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label htmlFor="assetName" className="text-[#1A1A1A]">Asset Name *</Label>
@@ -673,6 +703,7 @@ export function CreateAsset() {
         <CardDescription>Every asset must have a verifiable professional supplier</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        {hasValidationErrors && <ValidationErrorSummary errors={validationErrors} />}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label htmlFor="companyName" className="text-[#1A1A1A]">Supplier Name *</Label>
@@ -751,6 +782,7 @@ export function CreateAsset() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        {hasValidationErrors && <ValidationErrorSummary errors={validationErrors} />}
         {/* External Documentation URL */}
         <div className="space-y-2">
           <Label htmlFor="externalDocUrl" className="text-[#1A1A1A]">External Documentation URL (optional if uploading files)</Label>
@@ -867,6 +899,7 @@ export function CreateAsset() {
         <CardDescription>Set the retail price for this asset</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        {hasValidationErrors && <ValidationErrorSummary errors={validationErrors} />}
         <div className="space-y-2">
           <Label htmlFor="retailPrice" className="text-[#1A1A1A]">Retail Price (USD) *</Label>
           <Input
