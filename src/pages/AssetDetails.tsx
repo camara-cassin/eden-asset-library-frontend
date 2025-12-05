@@ -223,16 +223,22 @@ export function AssetDetails() {
                   <p className="text-[#1A1A1A]">{asset.system_meta?.version || 'v1'}</p>
                 </div>
               </div>
-              <div>
-                <p className="text-sm text-[#7A7A7A]">Short Summary</p>
-                <p className="text-[#1A1A1A]">{asset.basic_information?.short_summary || '-'}</p>
-              </div>
-            </CardContent>
-          </Card>
+                        <div>
+                          <p className="text-sm text-[#7A7A7A]">Short Summary</p>
+                          <p className="text-[#1A1A1A]">{asset.basic_information?.short_summary || '-'}</p>
+                        </div>
+                        {asset.basic_information?.long_description && (
+                          <div>
+                            <p className="text-sm text-[#7A7A7A]">Long Description <span className="text-xs">(AI-generated)</span></p>
+                            <p className="text-[#1A1A1A] whitespace-pre-wrap">{asset.basic_information.long_description}</p>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
 
-          <Card className="bg-white rounded-xl shadow-sm">
-            <CardHeader>
-              <CardTitle className="text-xl text-[#1A1A1A]">Contributor</CardTitle>
+                    <Card className="bg-white rounded-xl shadow-sm">
+                      <CardHeader>
+                        <CardTitle className="text-xl text-[#1A1A1A]">Contributor</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-2 gap-4">

@@ -736,17 +736,36 @@ export function EditAsset() {
             />
           </div>
 
-          <div className="space-y-2">
-            <Label className="text-[#1A1A1A]">Short Summary</Label>
-            <Textarea
-              value={formData.basic_information?.short_summary || ''}
-              onChange={(e) => updateFormField('basic_information.short_summary', e.target.value)}
-              rows={3}
-              className="border-[#D8D8D8]"
-            />
-          </div>
+                    <div className="space-y-2">
+                      <Label className="text-[#1A1A1A]">Short Summary</Label>
+                      <Textarea
+                        value={formData.basic_information?.short_summary || ''}
+                        onChange={(e) => updateFormField('basic_information.short_summary', e.target.value)}
+                        rows={3}
+                        className="border-[#D8D8D8]"
+                      />
+                    </div>
 
-          {/* Contributor (read-only) */}
+                    {/* Long Description (AI-generated, read-only) */}
+                    <div className="space-y-2">
+                      <Label className="text-[#1A1A1A]">
+                        Long Description
+                        <span className="ml-2 text-xs text-[#7A7A7A] font-normal">(AI-generated)</span>
+                      </Label>
+                      {formData.basic_information?.long_description ? (
+                        <div className="p-4 bg-gray-50 border border-[#D8D8D8] rounded-md">
+                          <p className="text-[#1A1A1A] whitespace-pre-wrap">
+                            {formData.basic_information.long_description}
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="p-4 bg-gray-50 border border-[#D8D8D8] rounded-md text-[#7A7A7A] italic">
+                          No AI-generated description yet. Click "AI Prefill from Docs" to generate.
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Contributor (read-only) */}
           <div className="border-t pt-4 mt-4">
             <h3 className="text-lg font-medium text-[#1A1A1A] mb-3">Contributor Information</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
