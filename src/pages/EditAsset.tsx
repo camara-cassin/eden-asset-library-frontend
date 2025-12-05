@@ -1205,7 +1205,7 @@ export function EditAsset() {
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-2">
-                  <Label className="text-[#1A1A1A]">Retail Price</Label>
+                  <Label className="text-[#1A1A1A]">Retail Price (USD)</Label>
                   <Input
                     type="number"
                     value={formData.economics?.retail_price || ''}
@@ -1215,7 +1215,7 @@ export function EditAsset() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-[#1A1A1A]">Wholesale Price</Label>
+                  <Label className="text-[#1A1A1A]">Wholesale Price (USD)</Label>
                   <Input
                     type="number"
                     value={formData.economics?.wholesale_price || ''}
@@ -1271,6 +1271,72 @@ export function EditAsset() {
                       <SelectItem value="not_available">Not Available / In Development</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+              </div>
+
+              {/* Annual Net Profit/Cost Calculation */}
+              <div className="mt-6 pt-4 border-t border-[#D8D8D8]">
+                <h4 className="text-sm font-medium text-[#1A1A1A] mb-3">Annual Financial Summary (USD)</h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="bg-red-50 rounded-lg p-3">
+                    <p className="text-xs text-[#7A7A7A] mb-1">Total Input Cost per Year</p>
+                    <p className="text-lg font-semibold text-red-600">
+                      ${(formData.functional_io?.inputs || []).reduce((sum, input) => {
+                        const yearly = calculateYearlyValue(input.estimated_financial_value_usd, input.time_period);
+                        return sum + (yearly || 0);
+                      }, 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </p>
+                  </div>
+                  <div className="bg-green-50 rounded-lg p-3">
+                    <p className="text-xs text-[#7A7A7A] mb-1">Total Output Value per Year</p>
+                    <p className="text-lg font-semibold text-green-600">
+                      ${(formData.functional_io?.outputs || []).reduce((sum, output) => {
+                        const yearly = calculateYearlyValue(output.estimated_financial_value_usd, output.time_period);
+                        return sum + (yearly || 0);
+                      }, 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </p>
+                  </div>
+                  <div className={`rounded-lg p-3 ${
+                    (() => {
+                      const totalInputCost = (formData.functional_io?.inputs || []).reduce((sum, input) => {
+                        const yearly = calculateYearlyValue(input.estimated_financial_value_usd, input.time_period);
+                        return sum + (yearly || 0);
+                      }, 0);
+                      const totalOutputValue = (formData.functional_io?.outputs || []).reduce((sum, output) => {
+                        const yearly = calculateYearlyValue(output.estimated_financial_value_usd, output.time_period);
+                        return sum + (yearly || 0);
+                      }, 0);
+                      return totalOutputValue - totalInputCost >= 0 ? 'bg-blue-50' : 'bg-orange-50';
+                    })()
+                  }`}>
+                    <p className="text-xs text-[#7A7A7A] mb-1">Estimated Net Profit per Year</p>
+                    <p className={`text-lg font-semibold ${
+                      (() => {
+                        const totalInputCost = (formData.functional_io?.inputs || []).reduce((sum, input) => {
+                          const yearly = calculateYearlyValue(input.estimated_financial_value_usd, input.time_period);
+                          return sum + (yearly || 0);
+                        }, 0);
+                        const totalOutputValue = (formData.functional_io?.outputs || []).reduce((sum, output) => {
+                          const yearly = calculateYearlyValue(output.estimated_financial_value_usd, output.time_period);
+                          return sum + (yearly || 0);
+                        }, 0);
+                        return totalOutputValue - totalInputCost >= 0 ? 'text-blue-600' : 'text-orange-600';
+                      })()
+                    }`}>
+                      {(() => {
+                        const totalInputCost = (formData.functional_io?.inputs || []).reduce((sum, input) => {
+                          const yearly = calculateYearlyValue(input.estimated_financial_value_usd, input.time_period);
+                          return sum + (yearly || 0);
+                        }, 0);
+                        const totalOutputValue = (formData.functional_io?.outputs || []).reduce((sum, output) => {
+                          const yearly = calculateYearlyValue(output.estimated_financial_value_usd, output.time_period);
+                          return sum + (yearly || 0);
+                        }, 0);
+                        const netProfit = totalOutputValue - totalInputCost;
+                        return `${netProfit >= 0 ? '' : '-'}$${Math.abs(netProfit).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                      })()}
+                    </p>
+                  </div>
                 </div>
               </div>
             </CardContent>

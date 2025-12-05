@@ -343,6 +343,8 @@ export interface AssetCreatePayload {
     subcategory?: string;
     scaling_potential?: ScalingPotential;
     company_name?: string;
+    company_email?: string;
+    company_phone?: string;
     company_website_url?: string;
   };
   contributor?: {

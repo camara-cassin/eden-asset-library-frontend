@@ -528,13 +528,13 @@ export function AssetDetails() {
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                   {asset.economics.retail_price !== undefined && (
                     <div>
-                      <p className="text-sm text-[#7A7A7A]">Retail Price</p>
+                      <p className="text-sm text-[#7A7A7A]">Retail Price (USD)</p>
                       <p className="text-[#1A1A1A]">${asset.economics.retail_price}</p>
                     </div>
                   )}
                   {asset.economics.wholesale_price !== undefined && (
                     <div>
-                      <p className="text-sm text-[#7A7A7A]">Wholesale Price</p>
+                      <p className="text-sm text-[#7A7A7A]">Wholesale Price (USD)</p>
                       <p className="text-[#1A1A1A]">${asset.economics.wholesale_price}</p>
                     </div>
                   )}
