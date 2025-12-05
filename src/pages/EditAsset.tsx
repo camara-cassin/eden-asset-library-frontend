@@ -76,18 +76,22 @@ const UNIT_OPTIONS = [
 
 // Time period options for functional_io inputs/outputs
 const TIME_PERIOD_OPTIONS = [
+  { value: 'per_minute', label: 'Per minute' },
   { value: 'per_day', label: 'Per day' },
   { value: 'per_week', label: 'Per week' },
   { value: 'per_month', label: 'Per month' },
   { value: 'per_year', label: 'Per year' },
+  { value: 'continuous', label: 'Continuous' },
 ];
 
 // Multipliers to convert time periods to yearly values
 const YEARLY_MULTIPLIERS: Record<string, number> = {
+  per_minute: 525600, // 60 * 24 * 365
   per_day: 365,
   per_week: 52,
   per_month: 12,
   per_year: 1,
+  continuous: 1, // Continuous values are already yearly/total
 };
 
 // Edit sections for step-by-step navigation
