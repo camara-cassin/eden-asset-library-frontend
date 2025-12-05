@@ -637,11 +637,11 @@ export function EditAsset() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-[#1A1A1A]">Minimum Order Quantity</Label>
+                  <Label className="text-[#1A1A1A]">Minimum Wholesale Quantity</Label>
                   <Input
                     type="number"
-                    value={formData.economics?.minimum_order_quantity || ''}
-                    onChange={(e) => updateFormField('economics.minimum_order_quantity', e.target.value ? Number(e.target.value) : undefined)}
+                    value={formData.economics?.minimum_wholesale_quantity || ''}
+                    onChange={(e) => updateFormField('economics.minimum_wholesale_quantity', e.target.value ? Number(e.target.value) : undefined)}
                     className="border-[#D8D8D8]"
                     placeholder="1"
                   />
@@ -667,19 +667,20 @@ export function EditAsset() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-[#1A1A1A]">Plan Access Type</Label>
+                  <Label className="text-[#1A1A1A]">Availability Type</Label>
                   <Select
-                    value={formData.economics?.plan_access_type || ''}
-                    onValueChange={(v) => updateFormField('economics.plan_access_type', v)}
+                    value={formData.economics?.availability_type || ''}
+                    onValueChange={(v) => updateFormField('economics.availability_type', v)}
                   >
                     <SelectTrigger className="border-[#D8D8D8]">
-                      <SelectValue placeholder="Select access type" />
+                      <SelectValue placeholder="Select availability type" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="free">Free</SelectItem>
-                      <SelectItem value="paid">Paid</SelectItem>
-                      <SelectItem value="subscription">Subscription</SelectItem>
-                      <SelectItem value="donation">Donation</SelectItem>
+                      <SelectItem value="for_sale">For Sale</SelectItem>
+                      <SelectItem value="licensed">Licensed</SelectItem>
+                      <SelectItem value="open_source">Open Source</SelectItem>
+                      <SelectItem value="proprietary">Proprietary / Restricted</SelectItem>
+                      <SelectItem value="not_available">Not Available / In Development</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

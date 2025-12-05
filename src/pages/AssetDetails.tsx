@@ -433,7 +433,7 @@ export function AssetDetails() {
           </Card>
 
           {/* Economics */}
-          {asset.economics && (asset.economics.retail_price || asset.economics.wholesale_price || asset.economics.plan_access_type) && (
+          {asset.economics && (asset.economics.retail_price || asset.economics.wholesale_price || asset.economics.availability_type) && (
             <Card className="bg-white rounded-xl shadow-sm">
               <CardHeader>
                 <CardTitle className="text-xl text-[#1A1A1A]">Economics</CardTitle>
@@ -452,10 +452,10 @@ export function AssetDetails() {
                       <p className="text-[#1A1A1A]">${asset.economics.wholesale_price}</p>
                     </div>
                   )}
-                  {asset.economics.minimum_order_quantity !== undefined && (
+                  {asset.economics.minimum_wholesale_quantity !== undefined && (
                     <div>
-                      <p className="text-sm text-[#7A7A7A]">Minimum Order Quantity</p>
-                      <p className="text-[#1A1A1A]">{asset.economics.minimum_order_quantity}</p>
+                      <p className="text-sm text-[#7A7A7A]">Minimum Wholesale Quantity</p>
+                      <p className="text-[#1A1A1A]">{asset.economics.minimum_wholesale_quantity}</p>
                     </div>
                   )}
                   {asset.economics.production_lead_time_days !== undefined && (
@@ -470,10 +470,10 @@ export function AssetDetails() {
                       <p className="text-[#1A1A1A]">{asset.economics.production_capacity_per_month}</p>
                     </div>
                   )}
-                  {asset.economics.plan_access_type && (
+                  {asset.economics.availability_type && (
                     <div>
-                      <p className="text-sm text-[#7A7A7A]">Plan Access Type</p>
-                      <p className="text-[#1A1A1A] capitalize">{asset.economics.plan_access_type}</p>
+                      <p className="text-sm text-[#7A7A7A]">Availability Type</p>
+                      <p className="text-[#1A1A1A] capitalize">{asset.economics.availability_type.replace(/_/g, ' ')}</p>
                     </div>
                   )}
                 </div>

@@ -209,10 +209,10 @@ export interface FunctionalIO {
 export interface Economics {
   retail_price?: number;
   wholesale_price?: number;
-  minimum_order_quantity?: number;
+  minimum_wholesale_quantity?: number;
   production_lead_time_days?: number;
   production_capacity_per_month?: number;
-  plan_access_type?: 'free' | 'paid' | 'subscription' | 'donation';
+  availability_type?: 'for_sale' | 'licensed' | 'open_source' | 'proprietary' | 'not_available';
   currency?: string;
   price_notes?: string;
   estimated_lifespan_years?: number;
