@@ -267,19 +267,27 @@ export function CreateAsset() {
       const assetId = data.id;
       
       // If there are files to upload, upload them
-      if (uploadedFiles.length > 0 && assetId) {
+      if ((uploadedFiles.length > 0 || uploadedPhotos.length > 0) && assetId) {
         setIsUploading(true);
         try {
-          // Group files by doc type
-          const filesByType = uploadedFiles.reduce((acc, { file, docType }) => {
-            if (!acc[docType]) acc[docType] = [];
-            acc[docType].push(file);
-            return acc;
-          }, {} as Record<string, File[]>);
+          // Upload documents if any
+          if (uploadedFiles.length > 0) {
+            // Group files by doc type
+            const filesByType = uploadedFiles.reduce((acc, { file, docType }) => {
+              if (!acc[docType]) acc[docType] = [];
+              acc[docType].push(file);
+              return acc;
+            }, {} as Record<string, File[]>);
+            
+            // Upload each group
+            for (const [docType, files] of Object.entries(filesByType)) {
+              await uploadFiles(assetId, files, docType as UploadedFile['docType']);
+            }
+          }
           
-          // Upload each group
-          for (const [docType, files] of Object.entries(filesByType)) {
-            await uploadFiles(assetId, files, docType as UploadedFile['docType']);
+          // Upload photos if any
+          if (uploadedPhotos.length > 0) {
+            await uploadFiles(assetId, uploadedPhotos, 'images');
           }
         } catch (error) {
           console.error('File upload error:', error);
