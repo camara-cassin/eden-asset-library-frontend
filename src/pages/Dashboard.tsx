@@ -255,6 +255,9 @@ export function Dashboard() {
                   <TableHead className="text-[#4A4A4A]">Category</TableHead>
                   <TableHead className="text-[#4A4A4A]">Status</TableHead>
                   <TableHead className="text-[#4A4A4A]">Submission Status</TableHead>
+                  {isAdmin && <TableHead className="text-[#4A4A4A]">Created By</TableHead>}
+                  {isAdmin && <TableHead className="text-[#4A4A4A]">Created At</TableHead>}
+                  {isAdmin && <TableHead className="text-[#4A4A4A]">Updated By</TableHead>}
                   <TableHead className="text-[#4A4A4A]">Last Updated</TableHead>
                 </TableRow>
               </TableHeader>
@@ -316,8 +319,23 @@ export function Dashboard() {
                             {asset.contributor?.submission_status || 'draft'}
                           </Badge>
                         </TableCell>
+                        {isAdmin && (
+                          <TableCell className="text-[#4A4A4A] text-sm">
+                            {asset.created_by || '-'}
+                          </TableCell>
+                        )}
+                        {isAdmin && (
+                          <TableCell className="text-[#4A4A4A] text-sm">
+                            {formatDate(asset.created_at)}
+                          </TableCell>
+                        )}
+                        {isAdmin && (
+                          <TableCell className="text-[#4A4A4A] text-sm">
+                            {asset.updated_by || '-'}
+                          </TableCell>
+                        )}
                         <TableCell className="text-[#4A4A4A]">
-                          {formatDate(asset.system_meta?.updated_at)}
+                          {formatDate(asset.updated_at || asset.system_meta?.updated_at)}
                         </TableCell>
                       </TableRow>
                     );
