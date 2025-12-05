@@ -34,7 +34,7 @@ const FILE_TARGETS = [
 
 // Unit options for functional_io inputs/outputs
 const UNIT_OPTIONS = [
-  // Energy
+  // Energy & Power
   { value: 'kW', label: 'kW (kilowatts)' },
   { value: 'kWh', label: 'kWh (kilowatt-hours)' },
   { value: 'W', label: 'W (watts)' },
@@ -43,6 +43,10 @@ const UNIT_OPTIONS = [
   { value: 'BTU', label: 'BTU' },
   { value: 'calories', label: 'calories' },
   { value: 'joules', label: 'joules' },
+  { value: 'horsepower', label: 'horsepower (HP)' },
+  // Electrical
+  { value: 'volts', label: 'volts (V)' },
+  { value: 'amps', label: 'amps (A)' },
   // Volume
   { value: 'gallons', label: 'gallons' },
   { value: 'liters', label: 'liters' },
